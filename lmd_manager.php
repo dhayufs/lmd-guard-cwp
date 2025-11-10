@@ -190,7 +190,9 @@ if (isset($_REQUEST['action_type'])) {
 <div class="cwp_module_header">
     <div class="cwp_module_name">LMD Guard CWP</div>
     <div class="cwp_module_info">Integrasi LMD Real-Time dengan CWP & Notifikasi Telegram</div>
-</div>
+</div> 
+<ul class="nav nav-tabs" id="lmdTabs">
+    </ul>
 
 <ul class="nav nav-tabs" id="lmdTabs">
     <li class="active"><a data-tab="summary">Ringkasan & Status LMD Guard 🟢</a></li>
