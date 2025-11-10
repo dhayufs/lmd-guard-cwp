@@ -94,7 +94,7 @@ if ! grep -q "lmd_manager" "$MOD_CONTROLLER"; then
 fi
 
 # D. Tambahkan Menu CWP (thirdparty.tpl)
-MENU_TPL="${CWP_ADMIN_DIR}/tpl/thirdparty.tpl"
+MENU_TPL="${CWP_ADMIN_DIR}/include/thirdparty.tpl"
 # NAMA BRAND DI SINI!
 MENU_LINE='<li><a href="index.php?module=3rdparty&action=developer&mod=lmd_manager">LMD Guard CWP</a></li>' 
 if ! grep -q "lmd_manager" "$MENU_TPL"; then
