@@ -2,6 +2,7 @@
 set -euo pipefail # Safety flags
 
 # --- 1. Definisi dan Variabel ---
+REPO_RAW_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main" 
 BRAND_NAME="LMD Guard CWP"
 MOD_NAME="lmd_manager" # Nama file modul PHP tanpa ekstensi
 
@@ -30,7 +31,7 @@ mkdir -p "${MOD_DIR_FINAL}" # Membuat direktori /modules/
 mkdir -p "$(dirname "$HOOK_SCRIPT")"
 
 # MENGUNDUH FILE PHP/HTML/JS FINAL ke lokasi yang BENAR: /modules/
-curl -o "${MOD_DIR_FINAL}/${MOD_NAME}.php" -L "${REPO_RAW_URL}/${MOD_NAME}.php"
+curl -o "${MOD_DIR_FINAL}/${MOD_NAME}.php" -L "https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main"
 echo "✅ ${MOD_NAME}.php berhasil diunduh ke lokasi modul yang benar (${MOD_DIR_FINAL}/)."
 
 # Membuat file konfigurasi LMD Manager jika belum ada
