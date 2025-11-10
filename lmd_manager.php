@@ -208,6 +208,9 @@ if (isset($_REQUEST['action_type'])) {
 }
 ?>
 
+<!-- WRAPPER WAJIB CWP: hanya ini yang ditambahkan agar tidak blank -->
+<div class="container-fluid">
+
 <div class="cwp_module_header">
     <div class="cwp_module_name">LMD Guard CWP</div>
     <div class="cwp_module_info">Integrasi LMD Real-Time dengan CWP & Notifikasi Telegram</div>
@@ -489,6 +492,8 @@ $(document).ready(function() {
 
 });
 </script>
+</div> <!-- TUTUP WRAPPER CWP -->
+
 <?php
 // ==============================================================================
 // CWP MODULE WRAPPER (FOOTER)
