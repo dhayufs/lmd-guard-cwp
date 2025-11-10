@@ -2,9 +2,8 @@
 set -euo pipefail # Safety flags
 
 # --- 1. Konfigurasi dan Variabel ---
-REPO_RAW_URL="https://raw.githubusercontent.com/YourUser/lmd-cwp-manager/main" # GANTI INI
 CWP_ADMIN_DIR="/usr/local/cwpsrv/htdocs/resources/admin"
-MOD_DIR="${CWP_ADMIN_DIR}/modules/developer"
+MOD_DIR="${CWP_ADMIN_DIR}/modules/"
 CONFIG_FILE="/etc/cwp/lmd_config.json"
 LMD_CONF="/usr/local/maldetect/conf.maldet"
 HOOK_SCRIPT="/usr/local/maldetect/hook/post_quarantine.sh"
