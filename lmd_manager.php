@@ -1,12 +1,14 @@
 <?php
 // ==============================================================================
-// BLOK 1: LOGIKA SERVER PHP & HELPER (HARUS DI ATAS)
+// CWP MODULE WRAPPER (WAJIB ADA UNTUK MENGHINDARI BLANK SCREEN)
 // ==============================================================================
+if (!defined("IN_CWP")) { die("Access Denied"); }
+// Memanggil header dan common file CWP
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php");
 
-// CWP Access Check
-if (empty($CWP_APP_NAME)) {
-    die('Unauthorized access');
-}
+// ==============================================================================
+// BLOK 1: LOGIKA SERVER PHP & HELPER 
+// ==============================================================================
 
 // Lokasi file config JSON (untuk Telegram/Inotify Status)
 define('LMD_CONFIG_FILE', '/etc/cwp/lmd_config.json');
@@ -93,6 +95,7 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
+    // Kita tetap butuh CWP_User::isAdmin() karena common.php sudah dipanggil
     if (CWP_User::isAdmin()) {
         switch ($action) {
             case 'get_summary':
@@ -208,7 +211,9 @@ if (isset($_REQUEST['action_type'])) {
 <div class="cwp_module_header">
     <div class="cwp_module_name">LMD Guard CWP</div>
     <div class="cwp_module_info">Integrasi LMD Real-Time dengan CWP & Notifikasi Telegram</div>
-</div> <ul class="nav nav-tabs" id="lmdTabs">
+</div>
+
+<ul class="nav nav-tabs" id="lmdTabs">
     <li class="active"><a data-tab="summary">Ringkasan & Status LMD Guard 🟢</a></li>
     <li><a data-tab="scan">Pemindaian 🔎</a></li>
     <li><a data-tab="quarantine">Karantina & Laporan LMD Guard 🗑️</a></li>
@@ -408,9 +413,6 @@ $(document).ready(function() {
     // D. EVENT LISTENERS
     // =================================================================
 
-    // Perbaikan: Mengganti URL AJAX dari ?module=3rdparty menjadi ?module=lmd_manager
-    // untuk menyesuaikan dengan struktur CWP yang baru kita temukan
-    
     // D1. Toggle Inotify
     $('#toggle_inotify').click(function() {
         var button = $(this);
@@ -487,3 +489,9 @@ $(document).ready(function() {
 
 });
 </script>
+<?php
+// ==============================================================================
+// CWP MODULE WRAPPER (FOOTER)
+// ==============================================================================
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
+?>
