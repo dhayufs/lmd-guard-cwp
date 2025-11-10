@@ -83,7 +83,7 @@ fi
 echo "✅ Konfigurasi LMD untuk hook berhasil."
 
 # C. Modifikasi CWP Controller (3rdparty.php)
-MOD_CONTROLLER="${CWP_ADMIN_DIR}/controller/3rdparty.php"
+MOD_CONTROLLER="${CWP_ADMIN_DIR}/include/3rdparty.php"
 # Menyisipkan logic loading modul lmd_manager di awal controller logic
 MOD_LINE="\t\$mod = isset(\$_REQUEST\['mod'\]) ? \$_REQUEST\['mod'\] : null; if (\$action == 'developer' && \$mod == 'lmd_manager') { require_once('${MOD_DIR}/lmd_manager.php'); exit; }"
 
