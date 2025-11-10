@@ -1,31 +1,41 @@
 <?php
 // ==============================================================================
-// BLOK 1: LOGIKA SERVER PHP & HELPER (TETAP SAMA)
+// BLOK 1: LOGIKA SERVER PHP & HELPER (HARUS DI ATAS)
 // ==============================================================================
+
 // CWP Access Check
-if (empty($CWP_APP_NAME)) { die('Unauthorized access'); }
+if (empty($CWP_APP_NAME)) {
+    die('Unauthorized access');
+}
+
+// Lokasi file config JSON (untuk Telegram/Inotify Status)
 define('LMD_CONFIG_FILE', '/etc/cwp/lmd_config.json');
+// Lokasi file log sementara untuk polling scan
 define('LMD_TEMP_LOG', '/tmp/lmd_scan_output'); 
 
+// 1. FUNGSI HELPER KEAMANAN: Sanitasi Shell Input
 function sanitize_shell_input($input) {
+    // Menghapus karakter pemisah perintah, dll.
     $input = str_replace(array(';', '&&', '||', '`', '$', '(', ')', '#', '!', "\n", "\r", '\\'), '', $input);
+    // Sanitasi kutip
     $input = str_replace("'", "\'", $input);
     return trim($input);
 }
-// [ ... FUNGSI send_telegram_notification, parse_quarantine_list DI SINI ... ]
+
+// 2. FUNGSI HELPER TELEGRAM
 function send_telegram_notification($message) {
     global $lmd_config; 
+    
     $token = $lmd_config['token'] ?? '';
     $chat_id = $lmd_config['chat_id'] ?? '';
+
     if (empty($token) || empty($chat_id)) {
         return ['status' => 'error', 'message' => 'Token atau Chat ID Telegram kosong.'];
     }
+
     $url = "https://api.telegram.org/bot{$token}/sendMessage";
-    $data = [
-        'chat_id' => $chat_id,
-        'text' => $message,
-        'parse_mode' => 'Markdown'
-    ];
+    $data = ['chat_id' => $chat_id, 'text' => $message, 'parse_mode' => 'Markdown'];
+
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_POST, 1);
@@ -35,7 +45,9 @@ function send_telegram_notification($message) {
     $server_output = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+
     $result = json_decode($server_output, true);
+
     if ($http_code == 200 && (isset($result['ok']) && $result['ok'] === true)) {
         return ['status' => 'success', 'message' => 'Pesan uji coba berhasil dikirim!'];
     } else {
@@ -44,14 +56,20 @@ function send_telegram_notification($message) {
     }
 }
 
+// 3. FUNGSI HELPER PARSING KARANTINA
 function parse_quarantine_list($raw_output) {
     $lines = preg_split('/\r\n|\r|\n/', $raw_output);
     $quarantine_list = [];
+    // Menghilangkan header dan footer (asumsi 5 baris pertama dan 2 baris terakhir)
     $data_lines = array_slice($lines, 5, -2); 
+
     foreach ($data_lines as $line) {
         $line = trim($line);
         if (empty($line) || strpos($line, '=======') !== false) continue;
+
+        // Pisahkan kolom menggunakan regex untuk spasi ganda
         $parts = preg_split('/\s{2,}/', $line, 7, PREG_SPLIT_NO_EMPTY);
+        
         if (count($parts) >= 7) {
             $quarantine_list[] = [
                 'qid' => sanitize_shell_input($parts[1]), 
@@ -66,9 +84,10 @@ function parse_quarantine_list($raw_output) {
     return $quarantine_list;
 }
 
+// Baca konfigurasi di sini agar bisa diakses oleh fungsi helper
 $lmd_config = file_exists(LMD_CONFIG_FILE) ? json_decode(file_get_contents(LMD_CONFIG_FILE), true) : ['token' => '', 'chat_id' => ''];
 
-// --- BLOK LOGIKA SERVER AJAX (TETAP SAMA) ---
+// --- BLOK LOGIKA SERVER AJAX ---
 if (isset($_REQUEST['action_type'])) {
     header('Content-Type: application/json');
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
@@ -76,7 +95,6 @@ if (isset($_REQUEST['action_type'])) {
     
     if (CWP_User::isAdmin()) {
         switch ($action) {
-            // [ ... SEMUA CASE AJAX DI SINI ... ]
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
                 $version = trim(str_replace('Version:', '', shell_exec('maldet --version | grep Version')));
@@ -190,11 +208,7 @@ if (isset($_REQUEST['action_type'])) {
 <div class="cwp_module_header">
     <div class="cwp_module_name">LMD Guard CWP</div>
     <div class="cwp_module_info">Integrasi LMD Real-Time dengan CWP & Notifikasi Telegram</div>
-</div> 
-<ul class="nav nav-tabs" id="lmdTabs">
-    </ul>
-
-<ul class="nav nav-tabs" id="lmdTabs">
+</div> <ul class="nav nav-tabs" id="lmdTabs">
     <li class="active"><a data-tab="summary">Ringkasan & Status LMD Guard 🟢</a></li>
     <li><a data-tab="scan">Pemindaian 🔎</a></li>
     <li><a data-tab="quarantine">Karantina & Laporan LMD Guard 🗑️</a></li>
@@ -312,7 +326,7 @@ $(document).ready(function() {
     // =================================================================
     
     function loadSummary() {
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', { action_type: 'get_summary' },
+        $.post('index.php?module=lmd_manager', { action_type: 'get_summary' },
             function(data) {
                 if (data.status === 'success') {
                     $('#lmd_version').text(data.data.version);
@@ -341,7 +355,7 @@ $(document).ready(function() {
         $('#start_scan_button').prop('disabled', true).text('Memindai (Sedang Berjalan)...');
 
         scanInterval = setInterval(function() {
-            $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', { action_type: 'get_scan_log' },
+            $.post('index.php?module=lmd_manager', { action_type: 'get_scan_log' },
                 function(data) {
                     $('#scan_log').html(data.log);
                     var logArea = $('#scan_log');
@@ -379,7 +393,7 @@ $(document).ready(function() {
     }
     function loadQuarantineList() {
         $('#quarantine_table_body').html('<tr><td colspan="5">Memuat data karantina...</td></tr>');
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', { action_type: 'quarantine_list' },
+        $.post('index.php?module=lmd_manager', { action_type: 'quarantine_list' },
             function(data) {
                 if (data.status === 'success' && data.data && data.data.length > 0) {
                     renderQuarantineTable(data.data);
@@ -394,23 +408,29 @@ $(document).ready(function() {
     // D. EVENT LISTENERS
     // =================================================================
 
+    // Perbaikan: Mengganti URL AJAX dari ?module=3rdparty menjadi ?module=lmd_manager
+    // untuk menyesuaikan dengan struktur CWP yang baru kita temukan
+    
+    // D1. Toggle Inotify
     $('#toggle_inotify').click(function() {
         var button = $(this);
         var currentState = button.data('state');
         button.prop('disabled', true).text('Memproses...');
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', { action_type: 'toggle_inotify', state: currentState },
+        $.post('index.php?module=lmd_manager', { action_type: 'toggle_inotify', state: currentState },
             function(data) { alert(data.message); loadSummary(); }, 'json'
         ).always(function() { button.prop('disabled', false); });
     });
     
+    // D2. Update Signature
     $('#update_signature').click(function() {
         var button = $(this);
         button.prop('disabled', true).text('Memproses Pembaruan...');
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', { action_type: 'update_signature' },
+        $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
             function(data) { alert(data.message); setTimeout(loadSummary, 5000); }, 'json'
         ).always(function() { button.prop('disabled', false).text('Perbarui Signature Sekarang'); });
     });
 
+    // D3. Submit Form Scan
     $('#scan_form').submit(function(e) {
         e.preventDefault();
         var button = $('#start_scan_button');
@@ -419,7 +439,7 @@ $(document).ready(function() {
         $('#scan_log').text('Memulai pemindaian...\n');
         button.prop('disabled', true).text('Memproses Permintaan...');
         
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', $(this).serialize() + '&action_type=start_scan',
+        $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=start_scan',
             function(data) {
                 if (data.status === 'success') { alert(data.message); startPolling(); } 
                 else { alert('Gagal memicu: ' + data.message); button.prop('disabled', false).text('Mulai Pemindaian'); }
@@ -427,29 +447,30 @@ $(document).ready(function() {
         ).fail(function() { alert('Kesalahan jaringan.'); button.prop('disabled', false).text('Mulai Pemindaian'); });
     });
     
+    // D4. Submit Form Pengaturan & Test Telegram
     $('#settings_form').submit(function(e) {
         e.preventDefault();
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', $(this).serialize() + '&action_type=save_settings',
+        $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
             function(data) { alert(data.message); }, 'json'
         );
     });
     $('#test_telegram').click(function() {
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager', { action_type: 'test_telegram' },
+        $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
             function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
         );
     });
 
+    // D5. Aksi Batch Karantina
     function handleQuarantineAction(actionType, button) {
         var selectedQids = $('input[name="qid[]"]:checked').map(function(){ return $(this).val(); }).get();
 
         if (selectedQids.length === 0 || !confirm('Yakin ' + actionType.toUpperCase() + ' ' + selectedQids.length + ' file?')) { return; }
 
         button.prop('disabled', true).text('Memproses...');
-        $.post('index.php?module=3rdparty&action=developer&mod=lmd_manager',
+        $.post('index.php?module=lmd_manager',
             { action_type: 'quarantine_action', action_q: actionType, file_ids: selectedQids },
             function(data) { alert(data.message); loadQuarantineList(); }, 'json'
         ).always(function() { 
-             // Reset teks tombol berdasarkan actionType
              var initialText = actionType.charAt(0).toUpperCase() + actionType.slice(1) + 'kan yang Dipilih';
              if (actionType === 'restore') initialText = 'Pulihkan yang Dipilih';
              if (actionType === 'delete') initialText = 'Hapus Permanen yang Dipilih';
