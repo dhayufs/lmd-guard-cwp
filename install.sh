@@ -1,38 +1,50 @@
 #!/bin/bash
-set -euo pipefail # Safety flags
+set -euo pipefail # Safety flags untuk stabilitas dan deteksi unbound variable
 
-# --- 1. Definisi dan Variabel ---
+# =================================================================
+# 1. DEFINISI VARIABEL (HARUS ADA DI AWAL)
+# =================================================================
+
+# GANTI INI DENGAN DETAIL REPO ANDA
 REPO_RAW_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main" 
+
 BRAND_NAME="LMD Guard CWP"
-MOD_NAME="lmd_manager" # Nama file modul PHP tanpa ekstensi
+MOD_NAME="lmd_manager" 
 
 CWP_ADMIN_DIR="/usr/local/cwpsrv/htdocs/resources/admin"
-# LOKASI BARU DAN BENAR SESUAI DOKUMENTASI CWP:
-MOD_DIR_FINAL="${CWP_ADMIN_DIR}/modules" 
-MENU_CONFIG_FILE="${CWP_ADMIN_DIR}/include/3rdparty.php" # Ini adalah file daftar menu HTML
 
-# Variabel Hook LMD (TETAP SAMA)
+# Variabel Path KRITIS (Penting untuk mengatasi unbound variable)
+CONFIG_FILE="/etc/cwp/lmd_config.json"
 LMD_CONF="/usr/local/maldetect/conf.maldet"
 HOOK_SCRIPT="/usr/local/maldetect/hook/post_quarantine.sh"
 
-echo "--- Memulai Instalasi ${BRAND_NAME} dari GitHub (Final Fix) ---"
+MOD_DIR_FINAL="${CWP_ADMIN_DIR}/modules" 
+MENU_CONFIG_FILE="${CWP_ADMIN_DIR}/include/3rdparty.php" 
+MOD_CONTROLLER="${CWP_ADMIN_DIR}/include/3rdparty.php"
 
-# --- 2. Cek Prasyarat ---
+echo "--- Memulai Instalasi ${BRAND_NAME} dari GitHub (Final Fix V2) ---"
+
+# =================================================================
+# 2. PROSES INSTALASI
+# =================================================================
+
+# Cek LMD
 if ! command -v maldet &> /dev/null; then
     echo "🚨 GAGAL: LMD tidak ditemukan. Instal LMD terlebih dahulu!"
     exit 1
 fi
 echo "✅ LMD ditemukan."
 
-# --- 3. Penyiapan Direktori dan Download File ---
+# Penyiapan Direktori dan Download File
 echo "--- Menyiapkan direktori dan unduh file ---"
 mkdir -p /etc/cwp/
-mkdir -p "${MOD_DIR_FINAL}" # Membuat direktori /modules/
+mkdir -p "${MOD_DIR_FINAL}" 
 mkdir -p "$(dirname "$HOOK_SCRIPT")"
 
-# MENGUNDUH FILE PHP/HTML/JS FINAL ke lokasi yang BENAR: /modules/
-curl -o "${MOD_DIR_FINAL}/${MOD_NAME}.php" -L "https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main"
-echo "✅ ${MOD_NAME}.php berhasil diunduh ke lokasi modul yang benar (${MOD_DIR_FINAL}/)."
+# MENGUNDUH FILE PHP/HTML/JS FINAL ke lokasi yang BENAR.
+# Menggunakan variabel $REPO_RAW_URL yang sudah didefinisikan di awal.
+curl -o "${MOD_DIR_FINAL}/${MOD_NAME}.php" -L "${REPO_RAW_URL}/${MOD_NAME}.php"
+echo "✅ ${MOD_NAME}.php berhasil diunduh ke lokasi modul yang benar."
 
 # Membuat file konfigurasi LMD Manager jika belum ada
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -41,15 +53,14 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "✅ File konfigurasi ${CONFIG_FILE} dibuat."
 fi
 
-# --- 4. IMPLEMENTASI LOGIKA MENU DAN KOREKSI CONTROLLER LAMA ---
+# --- 3. IMPLEMENTASI LOGIKA MENU DAN KOREKSI CONTROLLER LAMA ---
 echo "--- Membersihkan dan Menyiapkan Menu CWP ---"
 
 # A. CLEANUP (MENGHAPUS LOGIC YANG SALAH DARI PERCOBAAN SEBELUMNYA)
-# Menghapus logic PHP yang salah dari 3rdparty.php (jika ada)
-# Hati-hati: Cari dan hapus baris yang mengandung 'lmd_manager' di 3rdparty.php
-# Ini mencegah konflik dengan sed berikutnya.
+# Menggunakan '|| true' untuk memastikan skrip tidak gagal jika file belum ada.
 sed -i '/lmd_manager/d' "${CWP_ADMIN_DIR}/include/3rdparty.php" || true 
 echo "✅ Logic lama dari 3rdparty.php telah dihapus (Cleanup)."
+
 
 # B. MEMBUAT/MENULIS ULANG FILE MENU (3rdparty.php)
 # Sesuai dokumen CWP, file ini hanya berisi link HTML
@@ -65,9 +76,7 @@ else
     echo "✅ File menu ${MENU_CONFIG_FILE} dibuat dengan link ${BRAND_NAME}."
 fi
 
-
-# --- 5. Implementasi Skrip Hook Real-Time Telegram (TETAP SAMA) ---
-# ... (Block code untuk membuat HOOK_SCRIPT) ...
+# --- 4. Implementasi Skrip Hook Real-Time Telegram ---
 echo "--- Membuat skrip hook real-time Telegram ---"
 cat << 'EOF_HOOK' > "${HOOK_SCRIPT}"
 #!/bin/bash
@@ -98,7 +107,7 @@ chmod +x "${HOOK_SCRIPT}"
 echo "✅ Skrip hook post_quarantine.sh dibuat dan siap."
 
 
-# --- 6. Konfigurasi Sistem (LMD) ---
+# --- 5. Konfigurasi Sistem (LMD) ---
 echo "--- Modifikasi konfigurasi sistem LMD ---"
 
 if [[ ! -w "$LMD_CONF" ]]; then
@@ -113,6 +122,6 @@ else
 fi
 echo "✅ Konfigurasi LMD untuk hook berhasil."
 
-# --- 7. FINALISASI ---
+# --- 6. FINALISASI ---
 echo "--- INSTALASI ${BRAND_NAME} SELESAI TOTAL ---"
 echo "URL Akses Langsung: /index.php?module=${MOD_NAME}"
