@@ -3,12 +3,21 @@
 // CWP MODULE WRAPPER (WAJIB ADA AGAR TIDAK BLANK)
 // ==============================================================================
 if (!defined("IN_CWP")) { die("Access Denied"); }
-// Memanggil common file CWP (ini mendefinisikan CWP_User::isAdmin(), dll.)
+
+// >>> KOREKSI KRITIS BERDASARKAN STRUKTUR CWP: 
+// Harus memuat CONFIG.PHP dan COMMON.PHP untuk mendapatkan semua class dan dependencies
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php");
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
 // ==============================================================================
+
+// [ ... (SEMUA FUNGSI HELPER ANDA, TAPI JANGAN MENGULANGNYA DI SINI) ... ]
+// [ ... (SEMUA LOGIKA AJAX ANDA BERADA DI BAWAH INI) ... ]
+
+// ... (KODE LMD_MANAGER.PHP BERLANJUT SEPERTI SEBELUMNYA) ...
+// ... (Pastikan semua kode di bawah ini ada di file lmd_manager.php Anda) ...
 
 // Lokasi file config JSON (untuk Telegram/Inotify Status)
 define('LMD_CONFIG_FILE', '/etc/cwp/lmd_config.json');
