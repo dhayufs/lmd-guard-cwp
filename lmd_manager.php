@@ -1,16 +1,15 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
+// CWP MODULE WRAPPER (FINAL FIX: STRUKTUR MANDIRI SEPERTI CONTOH.PHP)
 // ==============================================================================
+// Kita tetap butuh logika invalid access dan PHP helper di awal.
 if ( !isset( $include_path ) ) { 
     echo "invalid access"; 
     exit(); 
 }
 
-// >>> KOREKSI KRITIS PATH FINAL (MENGHILANGKAN SEMUA INCLUDE ABSOLUT) <<<
-// Kita sekarang menggunakan path relatif /include/ yang paling mendekati benar.
-include_once("../include/config.php"); 
-include_once("../include/common.php"); 
+// Kita harus memastikan CWP_User::isAdmin() tersedia. 
+// Karena semua include gagal, kita HARUS berasumsi CWP menyediakan fungsi ini secara global.
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -23,9 +22,7 @@ define('LMD_TEMP_LOG', '/tmp/lmd_scan_output');
 
 // 1. FUNGSI HELPER KEAMANAN: Sanitasi Shell Input
 function sanitize_shell_input($input) {
-    // Menghapus karakter pemisah perintah, dll.
     $input = str_replace(array(';', '&&', '||', '`', '$', '(', ')', '#', '!', "\n", "\r", '\\'), '', $input);
-    // Sanitasi kutip
     $input = str_replace("'", "\'", $input);
     return trim($input);
 }
@@ -99,7 +96,9 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    if (CWP_User::isAdmin()) {
+    // Asumsi CWP_User::isAdmin() sudah tersedia secara global
+    if (class_exists('CWP_User') && CWP_User::isAdmin()) { 
+        // [ ... LOGIKA AJAX ANDA DI SINI ... ]
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -210,7 +209,34 @@ if (isset($_REQUEST['action_type'])) {
     exit;
 }
 ?> 
-<?php include_once("header.php"); ?>
+
+<!doctype html>
+<html class="no-js">
+<head>
+  <meta charset="utf-8">
+  <title>LMD Guard CWP</title>
+
+  <link href="design/css/icons.css" rel="stylesheet" />
+  <link href="design/css/bootstrap.css" rel="stylesheet" />
+  <link href="design/css/plugins.css" rel="stylesheet" />
+  <link href="design/css/main.css" rel="stylesheet" />
+  <link href="design/css/custom.css" rel="stylesheet" />
+  <link id="customcss" href="design/css/custom.css" rel="stylesheet" />
+  
+  <style>
+    /* Style untuk modul */
+    .cwp_module_header {border-bottom: 1px solid #ccc; margin-bottom: 15px;}
+    .tab-pane{padding-top:12px}
+    .table{background:#fff}
+    .label-danger { background-color: #d9534f; }
+    .label-success { background-color: #5cb85c; }
+  </style>
+
+  <script src="design/js/libs/jquery-2.1.1.min.js"></script>
+  <script src="design/js/bootstrap/bootstrap.js"></script>
+  <script src="design/js/main.js"></script>
+</head>
+<body>
 
 <div class="container-fluid" id="lmd_module_container">
 
@@ -304,210 +330,206 @@ if (isset($_REQUEST['action_type'])) {
 // ==============================================================================
 // SCRIPT JAVASCRIPT
 // ==============================================================================
-// Penundaan 500ms untuk memberi waktu CWP menyelesaikan inisialisasi UI
-setTimeout(function() {
+// Kita hapus setTimeout karena kita memuat semua asset secara hardcode
+$(document).ready(function() {
     var $moduleContainer = $('#lmd_module_container');
     
-    $moduleContainer.ready(function() {
+    // Pastikan JQuery tersedia untuk semua tombol
         
-        var scanInterval = null; 
+    var scanInterval = null; 
 
-        // Navigasi Tab
-        $moduleContainer.find('#lmdTabs a').click(function (e) {
-            e.preventDefault();
-            $(this).tab('show');
-            $moduleContainer.find('.tab-pane').removeClass('active');
-            
-            var targetTab = $(this).data('tab');
-            $moduleContainer.find('#tab-' + targetTab).addClass('active');
-
-            if (targetTab === 'quarantine') {
-                loadQuarantineList(); 
-            }
-        });
-
-        // Toggle Full/Recent Scan
-        $moduleContainer.find('input[name="scan_type_radio"]').change(function() {
-            if ($(this).val() === 'full') {
-                $moduleContainer.find('#scan_path_group').show();
-                $moduleContainer.find('#scan_recent_group').hide();
-            } else {
-                $moduleContainer.find('#scan_path_group').hide();
-                $moduleContainer.find('#scan_recent_group').show();
-            }
-        }).trigger('change'); 
-
-        // Select All Checkbox
-        $moduleContainer.find('#select_all_quarantine').click(function() {
-            $moduleContainer.find(':checkbox[name="qid[]"]').prop('checked', this.checked);
-        });
+    // Navigasi Tab
+    $moduleContainer.find('#lmdTabs a').click(function (e) {
+        e.preventDefault();
+        $(this).tab('show');
+        $moduleContainer.find('.tab-pane').removeClass('active');
         
-        // =================================================================
-        // FUNGSI JAVASCRIPT: LOGIKA INTI
-        // =================================================================
-        
-        function loadSummary() {
-            $.post('index.php?module=lmd_manager', { action_type: 'get_summary' },
-                function(data) {
-                    if (data.status === 'success') {
-                        $moduleContainer.find('#lmd_version').text(data.data.version);
-                        $moduleContainer.find('#quarantine_count').text(data.data.quarantine_count);
+        var targetTab = $(this).data('tab');
+        $moduleContainer.find('#tab-' + targetTab).addClass('active');
 
-                        var isMonitoring = data.data.is_monitoring;
-                        var statusElement = $moduleContainer.find('#inotify_status');
-                        var buttonElement = $moduleContainer.find('#toggle_inotify');
-                        
-                        if (isMonitoring) {
-                            statusElement.text('ON').removeClass('label-danger').addClass('label-success');
-                            buttonElement.text('Matikan Pemantauan').removeClass('btn-default').addClass('btn-danger').data('state', 'stop');
-                        } else {
-                            statusElement.text('OFF').removeClass('label-success').addClass('label-danger');
-                            buttonElement.text('Nyalakan Pemantauan').removeClass('btn-danger').addClass('btn-default').data('state', 'start');
-                        }
-                    }
-                }, 'json'
-            ).fail(function() { console.error("Gagal memuat ringkasan."); });
+        if (targetTab === 'quarantine') {
+            loadQuarantineList(); 
         }
-        loadSummary();
-        setInterval(loadSummary, 10000); 
-
-        function startPolling() {
-            if (scanInterval) { clearInterval(scanInterval); }
-            $moduleContainer.find('#start_scan_button').prop('disabled', true).text('Memproses...');
-
-            scanInterval = setInterval(function() {
-                $.post('index.php?module=lmd_manager', { action_type: 'get_scan_log' },
-                    function(data) {
-                        $moduleContainer.find('#scan_log').html(data.log);
-                        var logArea = $moduleContainer.find('#scan_log');
-                        logArea.scrollTop(logArea.prop("scrollHeight"));
-                        
-                        if (data.finished) {
-                            clearInterval(scanInterval);
-                            $moduleContainer.find('#scan_log').append('\n--- PEMINDAIAN SELESAI ---\n');
-                            $moduleContainer.find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
-                            scanInterval = null;
-                            loadQuarantineList(); 
-                        }
-                    }, 'json'
-                ).fail(function() {
-                    clearInterval(scanInterval);
-                    $moduleContainer.find('#scan_log').append('\n--- KESALAHAN JARINGAN/SERVER ---');
-                    $moduleContainer.find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
-                    scanInterval = null;
-                });
-            }, 2000);
-        }
-        
-        function renderQuarantineTable(data) {
-            var tableHtml = '';
-            $.each(data, function(index, item) {
-                tableHtml += '<tr>';
-                tableHtml += '<td><input type="checkbox" name="qid[]" value="' + item.qid + '"></td>';
-                tableHtml += '<td>' + item.qid + '</td>';
-                tableHtml += '<td>' + item.path + '</td>';
-                tableHtml += '<td>' + item.signature + '</td>';
-                tableHtml += '<td>' + item.time + ' (' + item.user + ')</td>';
-                tableHtml += '</tr>';
-            });
-            $moduleContainer.find('#quarantine_table_body').html(tableHtml);
-        }
-        function loadQuarantineList() {
-            $moduleContainer.find('#quarantine_table_body').html('<tr><td colspan="5">Memuat data karantina...</td></tr>');
-            $.post('index.php?module=lmd_manager', { action_type: 'quarantine_list' },
-                function(data) {
-                    if (data.status === 'success' && data.data && data.data.length > 0) {
-                        renderQuarantineTable(data.data);
-                    } else {
-                        $moduleContainer.find('#quarantine_table_body').html('<tr><td colspan="5">Tidak ada file dalam karantina.</td></tr>');
-                    }
-                }, 'json'
-            );
-        }
-        
-        // =================================================================
-        // D. EVENT LISTENERS
-        // =================================================================
-
-        // D1. Toggle Inotify
-        $('#toggle_inotify').click(function() {
-            var button = $(this);
-            var currentState = button.data('state');
-            button.prop('disabled', true).text('Memproses...');
-            $.post('index.php?module=lmd_manager', { action_type: 'toggle_inotify', state: currentState },
-                function(data) { alert(data.message); loadSummary(); }, 'json'
-            ).always(function() { button.prop('disabled', false); });
-        });
-        
-        // D2. Update Signature
-        $('#update_signature').click(function() {
-            var button = $(this);
-            button.prop('disabled', true).text('Memproses Pembaruan...');
-            $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
-                function(data) { alert(data.message); setTimeout(loadSummary, 5000); }, 'json'
-            ).always(function() { button.prop('disabled', false).text('Perbarui Signature Sekarang'); });
-        });
-
-        // D3. Submit Form Scan
-        $('#scan_form').submit(function(e) {
-            e.preventDefault();
-            var button = $('#start_scan_button');
-            var type = $('input[name="scan_type_radio"]:checked').val();
-
-            $('#scan_log').text('Memulai pemindaian...\n');
-            button.prop('disabled', true).text('Memproses Permintaan...');
-            
-            $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=start_scan',
-                function(data) {
-                    if (data.status === 'success') { alert(data.message); startPolling(); } 
-                    else { alert('Gagal memicu: ' + data.message); button.prop('disabled', false).text('Mulai Pemindaian'); }
-                }, 'json'
-            ).fail(function() { alert('Kesalahan jaringan.'); button.prop('disabled', false).text('Mulai Pemindaian'); });
-        });
-        
-        // D4. Submit Form Pengaturan & Test Telegram
-        $('#settings_form').submit(function(e) {
-            e.preventDefault();
-            $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
-                function(data) { alert(data.message); }, 'json'
-            );
-        });
-        $('#test_telegram').click(function() {
-            $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
-                function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
-            );
-        });
-
-        // D5. Aksi Batch Karantina
-        function handleQuarantineAction(actionType, button) {
-            var selectedQids = $moduleContainer.find('input[name="qid[]"]:checked').map(function(){ return $(this).val(); }).get();
-
-            if (selectedQids.length === 0 || !confirm('Yakin ' + actionType.toUpperCase() + ' ' + selectedQids.length + ' file?')) { return; }
-
-            button.prop('disabled', true).text('Memproses...');
-            $.post('index.php?module=lmd_manager',
-                { action_type: 'quarantine_action', action_q: actionType, file_ids: selectedQids },
-                function(data) { alert(data.message); loadQuarantineList(); }, 'json'
-            ).always(function() { 
-                 var initialText = actionType.charAt(0).toUpperCase() + actionType.slice(1) + 'kan yang Dipilih';
-                 if (actionType === 'restore') initialText = 'Pulihkan yang Dipilih';
-                 if (actionType === 'delete') initialText = 'Hapus Permanen yang Dipilih';
-                 if (actionType === 'clean') initialText = 'Coba Bersihkan yang Dipilih';
-
-                 button.prop('disabled', false).text(initialText); 
-            }).fail(function() {
-                alert('Gagal terhubung ke server. Periksa koneksi.');
-            });
-        }
-        $moduleContainer.find('#restore_button').click(function() { handleQuarantineAction('restore', $(this)); });
-        $moduleContainer.find('#delete_button').click(function() { handleQuarantineAction('delete', $(this)); });
-        $moduleContainer.find('#clean_button').click(function() { handleQuarantineAction('clean', $(this)); });
-
     });
-}, 500); // Tutup setTimeout
+
+    // Toggle Full/Recent Scan
+    $moduleContainer.find('input[name="scan_type_radio"]').change(function() {
+        if ($(this).val() === 'full') {
+            $moduleContainer.find('#scan_path_group').show();
+            $moduleContainer.find('#scan_recent_group').hide();
+        } else {
+            $moduleContainer.find('#scan_path_group').hide();
+            $moduleContainer.find('#scan_recent_group').show();
+        }
+    }).trigger('change'); 
+
+    // Select All Checkbox
+    $moduleContainer.find('#select_all_quarantine').click(function() {
+        $(':checkbox[name="qid[]"]').prop('checked', this.checked);
+    });
+    
+    // =================================================================
+    // FUNGSI JAVASCRIPT: LOGIKA INTI
+    // =================================================================
+    
+    function loadSummary() {
+        $.post('index.php?module=lmd_manager', { action_type: 'get_summary' },
+            function(data) {
+                if (data.status === 'success') {
+                    $moduleContainer.find('#lmd_version').text(data.data.version);
+                    $moduleContainer.find('#quarantine_count').text(data.data.quarantine_count);
+
+                    var isMonitoring = data.data.is_monitoring;
+                    var statusElement = $moduleContainer.find('#inotify_status');
+                    var buttonElement = $moduleContainer.find('#toggle_inotify');
+                    
+                    if (isMonitoring) {
+                        statusElement.text('ON').removeClass('label-danger').addClass('label-success');
+                        buttonElement.text('Matikan Pemantauan').removeClass('btn-default').addClass('btn-danger').data('state', 'stop');
+                    } else {
+                        statusElement.text('OFF').removeClass('label-success').addClass('label-danger');
+                        buttonElement.text('Nyalakan Pemantauan').removeClass('btn-danger').addClass('btn-default').data('state', 'start');
+                    }
+                }
+            }, 'json'
+        ).fail(function() { console.error("Gagal memuat ringkasan."); });
+    }
+    loadSummary();
+    setInterval(loadSummary, 10000); 
+
+    function startPolling() {
+        if (scanInterval) { clearInterval(scanInterval); }
+        $moduleContainer.find('#start_scan_button').prop('disabled', true).text('Memproses...');
+
+        scanInterval = setInterval(function() {
+            $.post('index.php?module=lmd_manager', { action_type: 'get_scan_log' },
+                function(data) {
+                    $moduleContainer.find('#scan_log').html(data.log);
+                    var logArea = $moduleContainer.find('#scan_log');
+                    logArea.scrollTop(logArea.prop("scrollHeight"));
+                    
+                    if (data.finished) {
+                        clearInterval(scanInterval);
+                        $moduleContainer.find('#scan_log').append('\n--- PEMINDAIAN SELESAI ---\n');
+                        $moduleContainer.find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
+                        scanInterval = null;
+                        loadQuarantineList(); 
+                    }
+                }, 'json'
+            ).fail(function() {
+                clearInterval(scanInterval);
+                $moduleContainer.find('#scan_log').append('\n--- KESALAHAN JARINGAN/SERVER ---');
+                $moduleContainer.find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
+                scanInterval = null;
+            });
+        }, 2000);
+    }
+    
+    function renderQuarantineTable(data) {
+        var tableHtml = '';
+        $.each(data, function(index, item) {
+            tableHtml += '<tr>';
+            tableHtml += '<td><input type="checkbox" name="qid[]" value="' + item.qid + '"></td>';
+            tableHtml += '<td>' + item.qid + '</td>';
+            tableHtml += '<td>' + item.path + '</td>';
+            tableHtml += '<td>' + item.signature + '</td>';
+            tableHtml += '<td>' + item.time + ' (' + item.user + ')</td>';
+            tableHtml += '</tr>';
+        });
+        $moduleContainer.find('#quarantine_table_body').html(tableHtml);
+    }
+    function loadQuarantineList() {
+        $moduleContainer.find('#quarantine_table_body').html('<tr><td colspan="5">Memuat data karantina...</td></tr>');
+        $.post('index.php?module=lmd_manager', { action_type: 'quarantine_list' },
+            function(data) {
+                if (data.status === 'success' && data.data && data.data.length > 0) {
+                    renderQuarantineTable(data.data);
+                } else {
+                    $moduleContainer.find('#quarantine_table_body').html('<tr><td colspan="5">Tidak ada file dalam karantina.</td></tr>');
+                }
+            }, 'json'
+        );
+    }
+    
+    // =================================================================
+    // D. EVENT LISTENERS
+    // =================================================================
+
+    // D1. Toggle Inotify
+    $moduleContainer.find('#toggle_inotify').click(function() {
+        var button = $(this);
+        var currentState = button.data('state');
+        button.prop('disabled', true).text('Memproses...');
+        $.post('index.php?module=lmd_manager', { action_type: 'toggle_inotify', state: currentState },
+            function(data) { alert(data.message); loadSummary(); }, 'json'
+        ).always(function() { button.prop('disabled', false); });
+    });
+    
+    // D2. Update Signature
+    $moduleContainer.find('#update_signature').click(function() {
+        var button = $(this);
+        button.prop('disabled', true).text('Memproses Pembaruan...');
+        $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
+            function(data) { alert(data.message); setTimeout(loadSummary, 5000); }, 'json'
+        ).always(function() { button.prop('disabled', false).text('Perbarui Signature Sekarang'); });
+    });
+
+    // D3. Submit Form Scan
+    $moduleContainer.find('#scan_form').submit(function(e) {
+        e.preventDefault();
+        var button = $('#start_scan_button');
+        var type = $('input[name="scan_type_radio"]:checked').val();
+
+        $('#scan_log').text('Memulai pemindaian...\n');
+        button.prop('disabled', true).text('Memproses Permintaan...');
+        
+        $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=start_scan',
+            function(data) {
+                if (data.status === 'success') { alert(data.message); startPolling(); } 
+                else { alert('Gagal memicu: ' + data.message); button.prop('disabled', false).text('Mulai Pemindaian'); }
+            }, 'json'
+        ).fail(function() { alert('Kesalahan jaringan.'); button.prop('disabled', false).text('Mulai Pemindaian'); });
+    });
+    
+    // D4. Submit Form Pengaturan & Test Telegram
+    $moduleContainer.find('#settings_form').submit(function(e) {
+        e.preventDefault();
+        $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
+            function(data) { alert(data.message); }, 'json'
+        );
+    });
+    $moduleContainer.find('#test_telegram').click(function() {
+        $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
+            function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
+        );
+    });
+
+    // D5. Aksi Batch Karantina
+    function handleQuarantineAction(actionType, button) {
+        var selectedQids = $moduleContainer.find('input[name="qid[]"]:checked').map(function(){ return $(this).val(); }).get();
+
+        if (selectedQids.length === 0 || !confirm('Yakin ' + actionType.toUpperCase() + ' ' + selectedQids.length + ' file?')) { return; }
+
+        button.prop('disabled', true).text('Memproses...');
+        $.post('index.php?module=lmd_manager',
+            { action_type: 'quarantine_action', action_q: actionType, file_ids: selectedQids },
+            function(data) { alert(data.message); loadQuarantineList(); }, 'json'
+        ).always(function() { 
+             var initialText = actionType.charAt(0).toUpperCase() + actionType.slice(1) + 'kan yang Dipilih';
+             if (actionType === 'restore') initialText = 'Pulihkan yang Dipilih';
+             if (actionType === 'delete') initialText = 'Hapus Permanen yang Dipilih';
+             if (actionType === 'clean') initialText = 'Coba Bersihkan yang Dipilih';
+
+             button.prop('disabled', false).text(initialText); 
+        }).fail(function() {
+            alert('Gagal terhubung ke server. Periksa koneksi.');
+        });
+    }
+    $moduleContainer.find('#restore_button').click(function() { handleQuarantineAction('restore', $(this)); });
+    $moduleContainer.find('#delete_button').click(function() { handleQuarantineAction('delete', $(this)); });
+    $moduleContainer.find('#clean_button').click(function() { handleQuarantineAction('clean', $(this)); });
+
+});
 </script>
-</div> <?php
-// FOOTER DIBUAT MINIMAL: Kita berasumsi CWP akan menutup tag yang tersisa.
-// Jangan memanggil include_once("footer.php") karena pasti gagal.
-// Kita hanya menggunakan PHP untuk menutup baris yang tersisa.
-?>
+</div> </body>
+</html>
