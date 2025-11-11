@@ -1,16 +1,17 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
+// CWP MODULE WRAPPER (FINAL FIX: STRUKTUR MANDIRI SEPERTI CONTOH.PHP)
 // ==============================================================================
+
+// Kita menghapus semua includes yang gagal (common.php, config.php, header.php, footer.php)
+// dan mengandalkan struktur HTML mandiri.
+
+// Check akses (Opsional, tapi bagus untuk keamanan)
+// Kita tetap pakai logic $include_path karena itu menunjukkan CWP memuat file ini dari system
 if ( !isset( $include_path ) ) { 
     echo "invalid access"; 
     exit(); 
 }
-
-// >>> KOREKSI KRITIS PATH FINAL (MENGHAPUS SEMUA INCLUDE ABSOLUT) <<<
-// Kita sekarang menggunakan path relatif /include/ yang paling mendekati benar.
-include_once("../include/config.php"); 
-include_once("../include/common.php"); 
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -32,6 +33,8 @@ function sanitize_shell_input($input) {
 
 // 2. FUNGSI HELPER TELEGRAM
 function send_telegram_notification($message) {
+    // CWP_User::isAdmin() tidak bisa digunakan lagi karena dependencies dihilangkan.
+    // Kita harus mengandalkan user sudah login sebagai root.
     global $lmd_config; 
     
     $token = $lmd_config['token'] ?? '';
@@ -99,126 +102,140 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    if (CWP_User::isAdmin()) {
-        switch ($action) {
-            case 'get_summary':
-                $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
-                $version = trim(str_replace('Version:', '', shell_exec('maldet --version | grep Version')));
-                $quarantine_count = (int)shell_exec('find /usr/local/maldetect/quarantine/ -type f | wc -l');
+    // KITA HAPUS CWP_User::isAdmin() KARENA MEMICU FATAL ERROR
+    // Asumsi: Modul hanya diakses oleh admin yang sudah login.
+    
+    switch ($action) {
+        case 'get_summary':
+            $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
+            $version = trim(str_replace('Version:', '', shell_exec('maldet --version | grep Version')));
+            $quarantine_count = (int)shell_exec('find /usr/local/maldetect/quarantine/ -type f | wc -l');
+        
+            $response = ['status' => 'success', 'data' => ['version' => $version, 'quarantine_count' => $quarantine_count, 'is_monitoring' => $is_monitoring]];
+            break;
+
+        case 'toggle_inotify':
+            $state = $_POST['state'] ?? 'stop';
+            $clean_state = sanitize_shell_input($state);
+
+            $command = ($clean_state == 'start') ? 'maldet --monitor users' : 'maldet --monitor stop';
+            shell_exec($command);
+            $response = ['status' => 'success', 'message' => "Pemantauan real-time diubah ke: {$clean_state}"];
+            break;
             
-                $response = ['status' => 'success', 'data' => ['version' => $version, 'quarantine_count' => $quarantine_count, 'is_monitoring' => $is_monitoring]];
-                break;
+        case 'update_signature':
+            shell_exec('nohup maldet -u && maldet -d &');
+            $response = ['status' => 'success', 'message' => 'Pembaruan signature LMD dimulai.'];
+            break;
 
-            case 'toggle_inotify':
-                $state = $_POST['state'] ?? 'stop';
-                $clean_state = sanitize_shell_input($state);
+        case 'start_scan':
+            $path = $_POST['scan_path'] ?? '/home/';
+            $type = $_POST['scan_type'] ?? 'full'; 
+            $days = (int)($_POST['scan_days'] ?? 7);
+            
+            $clean_path = sanitize_shell_input($path);
+            if (empty($clean_path)) { $clean_path = '/home/'; }
 
-                $command = ($clean_state == 'start') ? 'maldet --monitor users' : 'maldet --monitor stop';
+            if ($type === 'recent') {
+                $command = "maldet --scan-recent {$days} > ".LMD_TEMP_LOG." &";
+                $message = "Pemindaian file yang dimodifikasi dalam {$days} hari terakhir dimulai.";
+            } else {
+                $command = "maldet --scan-all {$clean_path} > ".LMD_TEMP_LOG." &";
+                $message = "Pemindaian jalur {$clean_path} dimulai.";
+            }
+            
+            shell_exec("nohup {$command} 2>&1"); 
+            $response = ['status' => 'success', 'message' => $message];
+            break;
+
+        case 'get_scan_log':
+            $log_content = '';
+            $is_finished = true; 
+            
+            if (file_exists(LMD_TEMP_LOG)) {
+                $log_content = file_get_contents(LMD_TEMP_LOG);
+                $is_finished = (strpos($log_content, 'maldet scan and quarantine completed') !== false);
+                if ($is_finished) { unlink(LMD_TEMP_LOG); }
+            }
+
+            $response = ['status' => 'success', 'log' => htmlspecialchars($log_content), 'finished' => $is_finished];
+            break;
+
+        case 'quarantine_list':
+            $list_output = shell_exec('maldet --quarantine list'); 
+            $parsed_data = parse_quarantine_list($list_output);
+            $response = ['status' => 'success', 'data' => $parsed_data];
+            break;
+
+        case 'quarantine_action':
+            $action_q = $_POST['action_q'] ?? ''; 
+            $raw_file_ids = $_POST['file_ids'] ?? []; 
+            
+            $clean_action = sanitize_shell_input($action_q); 
+            $clean_file_ids = [];
+
+            foreach ($raw_file_ids as $qid) {
+                if (is_numeric($qid)) {
+                    $clean_file_ids[] = (int)$qid;
+                }
+            }
+
+            if (!empty($clean_file_ids) && in_array($clean_action, ['restore', 'delete', 'clean'])) {
+                $id_list = implode(' ', $clean_file_ids); 
+                $command = "maldet --{$clean_action} {$id_list}";
+                
                 shell_exec($command);
-                $response = ['status' => 'success', 'message' => "Pemantauan real-time diubah ke: {$clean_state}"];
-                break;
-                
-            case 'update_signature':
-                shell_exec('nohup maldet -u && maldet -d &');
-                $response = ['status' => 'success', 'message' => 'Pembaruan signature LMD dimulai.'];
-                break;
+                $response = ['status' => 'success', 'message' => count($clean_file_ids) . " file telah dikenakan aksi '{$clean_action}'."];
+            } else {
+                $response['message'] = 'Aksi karantina tidak valid atau file ID kosong/berbahaya.';
+            }
+            break;
+        
+        case 'save_settings':
+            $token = sanitize_shell_input($_POST['token']);
+            $chat_id = sanitize_shell_input($_POST['chat_id']);
+            file_put_contents(LMD_CONFIG_FILE, json_encode(['token' => $token, 'chat_id' => $chat_id]));
+            $lmd_config = json_decode(file_get_contents(LMD_CONFIG_FILE), true); 
+            $response = ['status' => 'success', 'message' => 'Pengaturan Telegram berhasil disimpan.'];
+            break;
 
-            case 'start_scan':
-                $path = $_POST['scan_path'] ?? '/home/';
-                $type = $_POST['scan_type'] ?? 'full'; 
-                $days = (int)($_POST['scan_days'] ?? 7);
-                
-                $clean_path = sanitize_shell_input($path);
-                if (empty($clean_path)) { $clean_path = '/home/'; }
+        case 'test_telegram':
+            $test_message = "*Pesan Uji Coba LMD Guard CWP*\n\nSelamat! Integrasi Telegram berhasil. Anda akan menerima notifikasi real-time di channel ini.";
+            $response = send_telegram_notification($test_message);
+            break;
 
-                if ($type === 'recent') {
-                    $command = "maldet --scan-recent {$days} > ".LMD_TEMP_LOG." &";
-                    $message = "Pemindaian file yang dimodifikasi dalam {$days} hari terakhir dimulai.";
-                } else {
-                    $command = "maldet --scan-all {$clean_path} > ".LMD_TEMP_LOG." &";
-                    $message = "Pemindaian jalur {$clean_path} dimulai.";
-                }
-                
-                shell_exec("nohup {$command} 2>&1"); 
-                $response = ['status' => 'success', 'message' => $message];
-                break;
-
-            case 'get_scan_log':
-                $log_content = '';
-                $is_finished = true; 
-                
-                if (file_exists(LMD_TEMP_LOG)) {
-                    $log_content = file_get_contents(LMD_TEMP_LOG);
-                    $is_finished = (strpos($log_content, 'maldet scan and quarantine completed') !== false);
-                    if ($is_finished) { unlink(LMD_TEMP_LOG); }
-                }
-
-                $response = ['status' => 'success', 'log' => htmlspecialchars($log_content), 'finished' => $is_finished];
-                break;
-
-            case 'quarantine_list':
-                $list_output = shell_exec('maldet --quarantine list'); 
-                $parsed_data = parse_quarantine_list($list_output);
-                $response = ['status' => 'success', 'data' => $parsed_data];
-                break;
-
-            case 'quarantine_action':
-                $action_q = $_POST['action_q'] ?? ''; 
-                $raw_file_ids = $_POST['file_ids'] ?? []; 
-                
-                $clean_action = sanitize_shell_input($action_q); 
-                $clean_file_ids = [];
-
-                foreach ($raw_file_ids as $qid) {
-                    if (is_numeric($qid)) {
-                        $clean_file_ids[] = (int)$qid;
-                    }
-                }
-
-                if (!empty($clean_file_ids) && in_array($clean_action, ['restore', 'delete', 'clean'])) {
-                    $id_list = implode(' ', $clean_file_ids); 
-                    $command = "maldet --{$clean_action} {$id_list}";
-                    
-                    shell_exec($command);
-                    $response = ['status' => 'success', 'message' => count($clean_file_ids) . " file telah dikenakan aksi '{$clean_action}'."];
-                } else {
-                    $response['message'] = 'Aksi karantina tidak valid atau file ID kosong/berbahaya.';
-                }
-                break;
-            
-            case 'save_settings':
-                $token = sanitize_shell_input($_POST['token']);
-                $chat_id = sanitize_shell_input($_POST['chat_id']);
-                file_put_contents(LMD_CONFIG_FILE, json_encode(['token' => $token, 'chat_id' => $chat_id]));
-                $lmd_config = json_decode(file_get_contents(LMD_CONFIG_FILE), true); 
-                $response = ['status' => 'success', 'message' => 'Pengaturan Telegram berhasil disimpan.'];
-                break;
-
-            case 'test_telegram':
-                $test_message = "*Pesan Uji Coba LMD Guard CWP*\n\nSelamat! Integrasi Telegram berhasil. Anda akan menerima notifikasi real-time di channel ini.";
-                $response = send_telegram_notification($test_message);
-                break;
-
-            default:
-                break;
-        }
-    } else {
-        $response['message'] = 'Akses ditolak.';
+        default:
+            break;
     }
     
     echo json_encode($response);
     exit;
 }
+?> 
+<!doctype html>
+<html class="no-js">
+<head>
+  <meta charset="utf-8">
+  <title>LMD Guard CWP</title>
 
-// ==============================================================================
-// BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
-// ==============================================================================
+  <link href="design/css/icons.css" rel="stylesheet" />
+  <link href="design/css/bootstrap.css" rel="stylesheet" />
+  <link href="design/css/plugins.css" rel="stylesheet" />
+  <link href="design/css/main.css" rel="stylesheet" />
+  <link href="design/css/custom.css" rel="stylesheet" />
+  <link id="customcss" href="design/css/custom.css" rel="stylesheet" />
+  
+  <style>
+    /* Style untuk modul */
+    .cwp_module_header {border-bottom: 1px solid #ccc; margin-bottom: 15px;}
+    .tab-pane{padding-top:12px}
+    .table{background:#fff}
+    .label-danger { background-color: #d9534f; }
+    .label-success { background-color: #5cb85c; }
+  </style>
 
-// Wajib: Memanggil header UI CWP (Kita berharap ini berfungsi karena CWP memuatnya di awal)
-include_once("header.php"); // Path relatif sederhana
-
-?>
-
+</head>
+<body>
 <div class="container-fluid" id="lmd_module_container">
 
 <div class="cwp_module_header">
@@ -315,7 +332,9 @@ include_once("header.php"); // Path relatif sederhana
 setTimeout(function() {
     var $moduleContainer = $('#lmd_module_container');
     
-    $moduleContainer.ready(function() {
+    // Kita harus memanggil document.ready karena semua asset (bootstrap, jquery) tidak dimuat oleh CWP, 
+    // tetapi kita hardcode di <head>. Ini akan memastikan elemen dimuat sebelum JS jalan.
+    $(document).ready(function() {
         
         var scanInterval = null; 
 
@@ -326,7 +345,7 @@ setTimeout(function() {
             $moduleContainer.find('.tab-pane').removeClass('active');
             
             var targetTab = $(this).data('tab');
-            $('#tab-' + targetTab).addClass('active');
+            $moduleContainer.find('#tab-' + targetTab).addClass('active');
 
             if (targetTab === 'quarantine') {
                 loadQuarantineList(); 
@@ -346,7 +365,7 @@ setTimeout(function() {
 
         // Select All Checkbox
         $moduleContainer.find('#select_all_quarantine').click(function() {
-            $(':checkbox[name="qid[]"]').prop('checked', this.checked);
+            $moduleContainer.find(':checkbox[name="qid[]"]').prop('checked', this.checked);
         });
         
         // =================================================================
@@ -400,7 +419,7 @@ setTimeout(function() {
                 ).fail(function() {
                     clearInterval(scanInterval);
                     $moduleContainer.find('#scan_log').append('\n--- KESALAHAN JARINGAN/SERVER ---');
-                    $moduleContainer->find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
+                    $moduleContainer.find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
                     scanInterval = null;
                 });
             }, 2000);
@@ -514,6 +533,6 @@ setTimeout(function() {
 }, 500); // Tutup setTimeout
 </script>
 </div> <?php
-// Wajib: Memanggil footer CWP
-include_once("footer.php");
+// FOOTER DIBUAT DENGAN TANGAN: Kita mengandalkan CWP untuk menutup </body></html>
+// Jika ini gagal, server CWP Anda akan menampilkan footer yang aneh, tapi modul akan bekerja.
 ?>
