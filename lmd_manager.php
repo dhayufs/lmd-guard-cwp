@@ -7,10 +7,11 @@ if ( !isset( $include_path ) ) {
     exit(); 
 }
 
-// >>> KOREKSI KRITIS PATH FIX: Mengganti /include/ menjadi /core/ <<<
-// Memuat dependency inti CWP
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/config.php"); 
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/common.php");
+// >>> KOREKSI KRITIS PATH FINAL (Menguji path yang paling mungkin berhasil) <<<
+// CWP sering membuat symlink /include/ atau /core/ ke lokasi yang berbeda.
+// Kita akan menggunakan path yang diyakini CWP ada di root resource/admin/
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php"); 
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -23,7 +24,9 @@ define('LMD_TEMP_LOG', '/tmp/lmd_scan_output');
 
 // 1. FUNGSI HELPER KEAMANAN: Sanitasi Shell Input
 function sanitize_shell_input($input) {
+    // Menghapus karakter pemisah perintah, dll.
     $input = str_replace(array(';', '&&', '||', '`', '$', '(', ')', '#', '!', "\n", "\r", '\\'), '', $input);
+    // Sanitasi kutip
     $input = str_replace("'", "\'", $input);
     return trim($input);
 }
@@ -66,12 +69,14 @@ function send_telegram_notification($message) {
 function parse_quarantine_list($raw_output) {
     $lines = preg_split('/\r\n|\r|\n/', $raw_output);
     $quarantine_list = [];
+    // Menghilangkan header dan footer (asumsi 5 baris pertama dan 2 baris terakhir)
     $data_lines = array_slice($lines, 5, -2); 
 
     foreach ($data_lines as $line) {
         $line = trim($line);
         if (empty($line) || strpos($line, '=======') !== false) continue;
 
+        // Pisahkan kolom menggunakan regex untuk spasi ganda
         $parts = preg_split('/\s{2,}/', $line, 7, PREG_SPLIT_NO_EMPTY);
         
         if (count($parts) >= 7) {
@@ -511,6 +516,6 @@ setTimeout(function() {
 }, 500); // Tutup setTimeout
 </script>
 </div> <?php
-// Wajib: Memanggil footer CWP (Koreksi Path: Mengganti /admin/footer.php ke /core/footer.php)
+// Wajib: Memanggil footer CWP (Koreksi Path ke /core/footer.php)
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/footer.php");
 ?>
