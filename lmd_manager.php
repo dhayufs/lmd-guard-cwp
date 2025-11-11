@@ -7,9 +7,11 @@ if ( !isset( $include_path ) ) {
     exit(); 
 }
 
-// >>> KITA MENGHILANGKAN SEMUA INCLUDE_ONCE DI SINI <<<
-// [Dihapus: include_once("../include/config.php");]
-// [Dihapus: include_once("../include/common.php");]
+// >>> KOREKSI KRITIS PATH FINAL (MENGHAPUS SEMUA INCLUDE ABSOLUT) <<<
+// Kita sekarang menggunakan path relatif /include/ yang paling mendekati benar.
+// Kita menggunakan include_once "../include/" karena ini adalah asumsi terbaik
+include_once("../include/config.php"); 
+include_once("../include/common.php"); 
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -98,8 +100,7 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    // Asumsi CWP_User::isAdmin() sudah tersedia secara global
-    if (CWP_User::isAdmin()) { 
+    if (class_exists('CWP_User') && CWP_User::isAdmin()) { 
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -113,7 +114,8 @@ if (isset($_REQUEST['action_type'])) {
                 $state = $_POST['state'] ?? 'stop';
                 $clean_state = sanitize_shell_input($state);
 
-                $command = ($clean_state == 'start') ? 'maldet --monitor users' : 'maldet --monitor stop';
+                // KOREKSI LMD: Menggunakan --kill-monitor atau -m users
+                $command = ($clean_state == 'start') ? 'maldet --monitor users' : 'maldet --kill-monitor';
                 shell_exec($command);
                 $response = ['status' => 'success', 'message' => "Pemantauan real-time diubah ke: {$clean_state}"];
                 break;
@@ -132,10 +134,12 @@ if (isset($_REQUEST['action_type'])) {
                 if (empty($clean_path)) { $clean_path = '/home/'; }
 
                 if ($type === 'recent') {
-                    $command = "maldet --scan-recent {$days} > ".LMD_TEMP_LOG." &";
+                    // LMD Command: maldet -r PATH DAYS
+                    $command = "maldet -r {$clean_path} {$days} > ".LMD_TEMP_LOG." &";
                     $message = "Pemindaian file yang dimodifikasi dalam {$days} hari terakhir dimulai.";
                 } else {
-                    $command = "maldet --scan-all {$clean_path} > ".LMD_TEMP_LOG." &";
+                    // LMD Command: maldet -a PATH
+                    $command = "maldet -a {$clean_path} > ".LMD_TEMP_LOG." &";
                     $message = "Pemindaian jalur {$clean_path} dimulai.";
                 }
                 
@@ -179,11 +183,14 @@ if (isset($_REQUEST['action_type'])) {
                     $id_list = implode(' ', $clean_file_ids); 
                     
                     if ($clean_action == 'restore') {
+                        // LMD Command: maldet -s SCANID
                         $command = "maldet --restore {$id_list}"; 
                     } else if ($clean_action == 'clean') {
+                        // LMD Command: maldet -n SCANID
                         $command = "maldet --clean {$id_list}";
                     } else {
-                        $command = "maldet --delete-quarantine-file-ids {$id_list}"; 
+                        // Hapus Permanen (LMD tidak punya command spesifik untuk QID delete, jadi kita purge)
+                        $command = "maldet --purge {$id_list}"; 
                     }
 
                     shell_exec($command);
@@ -218,34 +225,7 @@ if (isset($_REQUEST['action_type'])) {
 }
 ?> 
 
-<!doctype html>
-<html class="no-js">
-<head>
-  <meta charset="utf-8">
-  <title>LMD Guard CWP</title>
-
-  <link href="design/css/icons.css" rel="stylesheet" />
-  <link href="design/css/bootstrap.css" rel="stylesheet" />
-  <link href="design/css/plugins.css" rel="stylesheet" />
-  <link href="design/css/main.css" rel="stylesheet" />
-  <link href="design/css/custom.css" rel="stylesheet" />
-  <link id="customcss" href="design/css/custom.css" rel="stylesheet" />
-  
-  <style>
-    /* Style untuk modul */
-    .cwp_module_header {border-bottom: 1px solid #ccc; margin-bottom: 15px;}
-    .tab-pane{padding-top:12px}
-    .table{background:#fff}
-    .label-danger { background-color: #d9534f; }
-    .label-success { background-color: #5cb85c; }
-  </style>
-
-  <script src="design/js/libs/jquery-2.1.1.min.js"></script>
-  <script src="design/js/bootstrap/bootstrap.js"></script>
-  <script src="design/js/main.js"></script>
-  <script src="design/js/pages/blank.js"></script>
-</head>
-<body>
+<?php include_once("header.php"); ?>
 
 <div class="container-fluid" id="lmd_module_container">
 
@@ -339,8 +319,6 @@ if (isset($_REQUEST['action_type'])) {
 // ==============================================================================
 // SCRIPT JAVASCRIPT
 // ==============================================================================
-// Kita menghapus setTimeout karena logika CWP sudah tidak memicu Uncaught TypeError
-// Semua logic JavaScript diikat ke $(document).ready()
 $(document).ready(function() {
     var $moduleContainer = $('#lmd_module_container');
     
@@ -479,7 +457,7 @@ $(document).ready(function() {
         button.prop('disabled', true).text('Memproses Pembaruan...');
         $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
             function(data) { alert(data.message); setTimeout(loadSummary, 5000); }, 'json'
-        ).always(function() { button.prop('disabled', false); });
+        ).always(function() { button.prop('disabled', false).text('Perbarui Signature Sekarang'); });
     });
 
     // D3. Submit Form Scan
@@ -500,7 +478,7 @@ $(document).ready(function() {
     });
     
     // D4. Submit Form Pengaturan & Test Telegram
-    $moduleContainer.find('#settings_form').submit(function(e) {
+    $('#settings_form').submit(function(e) {
         e.preventDefault();
         $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
             function(data) { alert(data.message); }, 'json'
