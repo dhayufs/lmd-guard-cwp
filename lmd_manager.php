@@ -538,7 +538,4 @@ setTimeout(function() {
     });
 }, 500); // Tutup setTimeout
 </script>
-</div> <?php
-// Wajib: Memanggil footer CWP
-include_once("footer.php");
-?>
+</div>
