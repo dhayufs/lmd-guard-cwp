@@ -1,20 +1,15 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
+// CWP MODULE WRAPPER (FINAL FIX: MENGHILANGKAN SEMUA INCLUDE PATH YANG GAGAL)
 // ==============================================================================
 if ( !isset( $include_path ) ) { 
     echo "invalid access"; 
     exit(); 
 }
 
-// >>> KOREKSI KRITIS: MENGHAPUS SEMUA include_once PATH YANG GAGAL <<<
-// Kita hanya mengandalkan CWP telah memuat COMMON dan CONFIG global.
-// Include header/footer yang gagal harus diganti dengan markup statis atau dihapus.
-
-// *Komentari/Hapus path yang gagal*
-// include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
-// include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php"); 
-// [CWP_User::isAdmin() seharusnya sudah tersedia di sini jika CWP bekerja normal]
+// >>> KOREKSI KRITIS: MENGHILANGKAN INCLUDE_ONCE YANG GAGAL <<<
+// Kita hanya mengandalkan CWP telah memuat COMMON dan CONFIG global
+// Semua class (CWP_User) harus sudah tersedia di sini.
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -27,7 +22,9 @@ define('LMD_TEMP_LOG', '/tmp/lmd_scan_output');
 
 // 1. FUNGSI HELPER KEAMANAN: Sanitasi Shell Input
 function sanitize_shell_input($input) {
+    // Menghapus karakter pemisah perintah, dll.
     $input = str_replace(array(';', '&&', '||', '`', '$', '(', ')', '#', '!', "\n", "\r", '\\'), '', $input);
+    // Sanitasi kutip
     $input = str_replace("'", "\'", $input);
     return trim($input);
 }
@@ -216,6 +213,10 @@ if (isset($_REQUEST['action_type'])) {
 // ==============================================================================
 // BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
 // ==============================================================================
+
+// Wajib: Memanggil header UI CWP (MENGANDALKAN CONTEXT CWP)
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
+?>
 
 <div class="container-fluid" id="lmd_module_container">
 
@@ -512,6 +513,6 @@ setTimeout(function() {
 }, 500); // Tutup setTimeout
 </script>
 </div> <?php
-// Wajib: Memanggil footer CWP
+// Wajib: Memanggil footer CWP 
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
 ?>
