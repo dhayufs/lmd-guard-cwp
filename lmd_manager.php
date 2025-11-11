@@ -1,19 +1,22 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: MENGHILANGKAN SEMUA INCLUDE PATH YANG GAGAL)
+// CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
 // ==============================================================================
 if ( !isset( $include_path ) ) { 
     echo "invalid access"; 
     exit(); 
 }
 
-// >>> KOREKSI KRITIS: MENGHILANGKAN INCLUDE_ONCE YANG GAGAL <<<
-// Kita hanya mengandalkan CWP telah memuat COMMON dan CONFIG global
-// Semua class (CWP_User) harus sudah tersedia di sini.
+// >>> KOREKSI KRITIS PATH FINAL (MENGGUNAKAN PATH RELATIF) <<<
+// Path absolut gagal. Kita coba path relatif dari /modules/ ke /include/.
+include_once("../include/config.php"); 
+include_once("../include/common.php"); 
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
-// ==============================================================================
+// [ ... (Semua logika PHP, functions, dan AJAX Anda) ... ]
+
+// [ ... (LANJUTKAN DENGAN KODE LMD_MANAGER.PHP SEPERTI SEBELUMNYA) ... ]
 
 // Lokasi file config JSON (untuk Telegram/Inotify Status)
 define('LMD_CONFIG_FILE', '/etc/cwp/lmd_config.json');
@@ -98,8 +101,7 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    // Asumsi CWP_User::isAdmin() sudah tersedia
-    if (CWP_User::isAdmin()) { 
+    if (CWP_User::isAdmin()) {
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -215,7 +217,7 @@ if (isset($_REQUEST['action_type'])) {
 // ==============================================================================
 
 // Wajib: Memanggil header UI CWP (MENGANDALKAN CONTEXT CWP)
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
+include_once("../header.php"); // Path relatif dari /modules/ ke /admin/
 ?>
 
 <div class="container-fluid" id="lmd_module_container">
@@ -513,6 +515,6 @@ setTimeout(function() {
 }, 500); // Tutup setTimeout
 </script>
 </div> <?php
-// Wajib: Memanggil footer CWP 
+// Wajib: Memanggil footer CWP
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
 ?>
