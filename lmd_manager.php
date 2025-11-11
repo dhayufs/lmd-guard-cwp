@@ -7,9 +7,8 @@ if ( !isset( $include_path ) ) {
     exit(); 
 }
 
-// >>> KOREKSI KRITIS PATH FINAL (Menguji path yang paling mungkin berhasil) <<<
-// CWP sering membuat symlink /include/ atau /core/ ke lokasi yang berbeda.
-// Kita akan menggunakan path yang diyakini CWP ada di root resource/admin/
+// >>> KOREKSI KRITIS PATH FINAL (KEMBALI KE PATH /INCLUDE/) <<<
+// CWP harusnya memuat dependensi dari sini.
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php"); 
 
@@ -69,14 +68,12 @@ function send_telegram_notification($message) {
 function parse_quarantine_list($raw_output) {
     $lines = preg_split('/\r\n|\r|\n/', $raw_output);
     $quarantine_list = [];
-    // Menghilangkan header dan footer (asumsi 5 baris pertama dan 2 baris terakhir)
     $data_lines = array_slice($lines, 5, -2); 
 
     foreach ($data_lines as $line) {
         $line = trim($line);
         if (empty($line) || strpos($line, '=======') !== false) continue;
 
-        // Pisahkan kolom menggunakan regex untuk spasi ganda
         $parts = preg_split('/\s{2,}/', $line, 7, PREG_SPLIT_NO_EMPTY);
         
         if (count($parts) >= 7) {
@@ -217,8 +214,8 @@ if (isset($_REQUEST['action_type'])) {
 // BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
 // ==============================================================================
 
-// Wajib: Memanggil header UI CWP (Koreksi Path ke /core/)
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/header.php");
+// Wajib: Memanggil header UI CWP 
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
 ?>
 
 <div class="container-fluid" id="lmd_module_container">
@@ -439,7 +436,7 @@ setTimeout(function() {
         // =================================================================
 
         // D1. Toggle Inotify
-        $('#toggle_inotify').click(function() {
+        $moduleContainer.find('#toggle_inotify').click(function() {
             var button = $(this);
             var currentState = button.data('state');
             button.prop('disabled', true).text('Memproses...');
@@ -449,7 +446,7 @@ setTimeout(function() {
         });
         
         // D2. Update Signature
-        $('#update_signature').click(function() {
+        $moduleContainer.find('#update_signature').click(function() {
             var button = $(this);
             button.prop('disabled', true).text('Memproses Pembaruan...');
             $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
@@ -458,7 +455,7 @@ setTimeout(function() {
         });
 
         // D3. Submit Form Scan
-        $('#scan_form').submit(function(e) {
+        $moduleContainer.find('#scan_form').submit(function(e) {
             e.preventDefault();
             var button = $('#start_scan_button');
             var type = $('input[name="scan_type_radio"]:checked').val();
@@ -475,13 +472,13 @@ setTimeout(function() {
         });
         
         // D4. Submit Form Pengaturan & Test Telegram
-        $('#settings_form').submit(function(e) {
+        $moduleContainer.find('#settings_form').submit(function(e) {
             e.preventDefault();
             $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
                 function(data) { alert(data.message); }, 'json'
             );
         });
-        $('#test_telegram').click(function() {
+        $moduleContainer.find('#test_telegram').click(function() {
             $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
                 function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
             );
@@ -516,6 +513,6 @@ setTimeout(function() {
 }, 500); // Tutup setTimeout
 </script>
 </div> <?php
-// Wajib: Memanggil footer CWP (Koreksi Path ke /core/footer.php)
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/footer.php");
+// Wajib: Memanggil footer CWP 
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
 ?>
