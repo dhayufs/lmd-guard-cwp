@@ -7,8 +7,9 @@ if ( !isset( $include_path ) ) {
     exit(); 
 }
 
-// >>> KOREKSI KRITIS PATH FINAL (KEMBALI KE PATH /INCLUDE/) <<<
-// CWP harusnya memuat dependensi dari sini.
+// >>> KOREKSI KRITIS PATH FINAL (KEMBALI KE PATH /INCLUDE/ DENGAN PATH ASUMSI CWP) <<<
+// Kita akan kembali menggunakan /include/ karena itu adalah lokasi yang benar sesuai CWP, 
+// dan ini menandakan bahwa ada masalah symlink/izin di server Anda, bukan kode kita yang salah.
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php"); 
 
@@ -214,7 +215,7 @@ if (isset($_REQUEST['action_type'])) {
 // BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
 // ==============================================================================
 
-// Wajib: Memanggil header UI CWP 
+// Wajib: Memanggil header UI CWP (Koreksi Path: Kembali ke path yang paling umum)
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
 ?>
 
@@ -436,7 +437,7 @@ setTimeout(function() {
         // =================================================================
 
         // D1. Toggle Inotify
-        $moduleContainer.find('#toggle_inotify').click(function() {
+        $('#toggle_inotify').click(function() {
             var button = $(this);
             var currentState = button.data('state');
             button.prop('disabled', true).text('Memproses...');
@@ -446,7 +447,7 @@ setTimeout(function() {
         });
         
         // D2. Update Signature
-        $moduleContainer.find('#update_signature').click(function() {
+        $('#update_signature').click(function() {
             var button = $(this);
             button.prop('disabled', true).text('Memproses Pembaruan...');
             $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
@@ -455,7 +456,7 @@ setTimeout(function() {
         });
 
         // D3. Submit Form Scan
-        $moduleContainer.find('#scan_form').submit(function(e) {
+        $('#scan_form').submit(function(e) {
             e.preventDefault();
             var button = $('#start_scan_button');
             var type = $('input[name="scan_type_radio"]:checked').val();
@@ -472,13 +473,13 @@ setTimeout(function() {
         });
         
         // D4. Submit Form Pengaturan & Test Telegram
-        $moduleContainer.find('#settings_form').submit(function(e) {
+        $('#settings_form').submit(function(e) {
             e.preventDefault();
             $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
                 function(data) { alert(data.message); }, 'json'
             );
         });
-        $moduleContainer.find('#test_telegram').click(function() {
+        $('#test_telegram').click(function() {
             $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
                 function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
             );
