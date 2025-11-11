@@ -21,7 +21,7 @@ if (!isset($include_path)) {
 // ------------------------------------------------------------
  // 2) LOAD CWP CORE (DINAMIS, TANPA PATH ABSOLUT)
  // ------------------------------------------------------------
-$BASE = realpath(dirname(__FILE__) . "/.."); // -> /resources/admin
+$BASE = realpath(dirname(__FILE__) . "/.."); // -> /resources/admin (atau /admin di sistem baru)
 if ($BASE === false) { 
     echo "base path error"; 
     exit();
