@@ -1,12 +1,15 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: STRUKTUR MANDIRI SEPERTI CONTOH.PHP)
+// CWP MODULE WRAPPER (FINAL FIX: MENGHILANGKAN SEMUA INCLUDE PATH YANG GAGAL)
 // ==============================================================================
-// Kita tidak menggunakan include_once. Kita hanya cek variabel $include_path.
 if ( !isset( $include_path ) ) { 
     echo "invalid access"; 
     exit(); 
 }
+
+// >>> KITA MENGHILANGKAN SEMUA INCLUDE_ONCE DI SINI <<<
+// [Dihapus: include_once("../include/config.php");]
+// [Dihapus: include_once("../include/common.php");]
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -95,8 +98,8 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    // Asumsi CWP_User::isAdmin() sudah tersedia secara global di lingkungan ini
-    if (class_exists('CWP_User') && CWP_User::isAdmin()) { 
+    // Asumsi CWP_User::isAdmin() sudah tersedia secara global
+    if (CWP_User::isAdmin()) { 
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -110,7 +113,7 @@ if (isset($_REQUEST['action_type'])) {
                 $state = $_POST['state'] ?? 'stop';
                 $clean_state = sanitize_shell_input($state);
 
-                $command = ($clean_state == 'start') ? 'maldet --monitor users' : 'maldet --kill-monitor';
+                $command = ($clean_state == 'start') ? 'maldet --monitor users' : 'maldet --monitor stop';
                 shell_exec($command);
                 $response = ['status' => 'success', 'message' => "Pemantauan real-time diubah ke: {$clean_state}"];
                 break;
@@ -180,7 +183,6 @@ if (isset($_REQUEST['action_type'])) {
                     } else if ($clean_action == 'clean') {
                         $command = "maldet --clean {$id_list}";
                     } else {
-                        // Action delete harus dilakukan pada ID karantina yang spesifik.
                         $command = "maldet --delete-quarantine-file-ids {$id_list}"; 
                     }
 
@@ -335,8 +337,10 @@ if (isset($_REQUEST['action_type'])) {
 
 <script>
 // ==============================================================================
-// SCRIPT JAVASCRIPT (FINAL FIX: DIKELUARKAN DARI TIMEOUT)
+// SCRIPT JAVASCRIPT
 // ==============================================================================
+// Kita menghapus setTimeout karena logika CWP sudah tidak memicu Uncaught TypeError
+// Semua logic JavaScript diikat ke $(document).ready()
 $(document).ready(function() {
     var $moduleContainer = $('#lmd_module_container');
     
@@ -349,7 +353,7 @@ $(document).ready(function() {
         $moduleContainer.find('.tab-pane').removeClass('active');
         
         var targetTab = $(this).data('tab');
-        $moduleContainer.find('#tab-' + targetTab).addClass('active');
+        $('#tab-' + targetTab).addClass('active');
 
         if (targetTab === 'quarantine') {
             loadQuarantineList(); 
@@ -369,7 +373,7 @@ $(document).ready(function() {
 
     // Select All Checkbox
     $moduleContainer.find('#select_all_quarantine').click(function() {
-        $(':checkbox[name="qid[]"]').prop('checked', this.checked);
+        $moduleContainer.find(':checkbox[name="qid[]"]').prop('checked', this.checked);
     });
     
     // =================================================================
@@ -475,7 +479,7 @@ $(document).ready(function() {
         button.prop('disabled', true).text('Memproses Pembaruan...');
         $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
             function(data) { alert(data.message); setTimeout(loadSummary, 5000); }, 'json'
-        ).always(function() { button.prop('disabled', false).text('Perbarui Signature Sekarang'); });
+        ).always(function() { button.prop('disabled', false); });
     });
 
     // D3. Submit Form Scan
@@ -535,8 +539,5 @@ $(document).ready(function() {
 
 });
 </script>
-</div> <?php
-// FOOTER DIBUAT MINIMAL: Kita mengandalkan CWP untuk menutup tag yang tersisa.
-?>
-</body>
+</div> </body>
 </html>
