@@ -1,9 +1,9 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (WAJIB ADA UNTUK MENGHINDARI BLANK SCREEN)
+// CWP MODULE WRAPPER (WAJIB ADA AGAR TIDAK BLANK)
 // ==============================================================================
 if (!defined("IN_CWP")) { die("Access Denied"); }
-// Memanggil header dan common file CWP
+// Memanggil common file CWP (ini mendefinisikan CWP_User::isAdmin(), dll.)
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php");
 
 // ==============================================================================
@@ -95,7 +95,6 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    // Kita tetap butuh CWP_User::isAdmin() karena common.php sudah dipanggil
     if (CWP_User::isAdmin()) {
         switch ($action) {
             case 'get_summary':
@@ -206,9 +205,15 @@ if (isset($_REQUEST['action_type'])) {
     echo json_encode($response);
     exit;
 }
+
+// ==============================================================================
+// BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
+// ==============================================================================
+
+// Wajib: Memanggil header UI CWP (sebelum HTML)
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
 ?>
 
-<!-- WRAPPER WAJIB CWP: hanya ini yang ditambahkan agar tidak blank -->
 <div class="container-fluid">
 
 <div class="cwp_module_header">
@@ -298,6 +303,9 @@ if (isset($_REQUEST['action_type'])) {
 </div>
 
 <script>
+// ==============================================================================
+// SCRIPT JAVASCRIPT
+// ==============================================================================
 $(document).ready(function() {
     
     var scanInterval = null; 
@@ -360,7 +368,7 @@ $(document).ready(function() {
 
     function startPolling() {
         if (scanInterval) { clearInterval(scanInterval); }
-        $('#start_scan_button').prop('disabled', true).text('Memindai (Sedang Berjalan)...');
+        $('#start_scan_button').prop('disabled', true).text('Memproses...');
 
         scanInterval = setInterval(function() {
             $.post('index.php?module=lmd_manager', { action_type: 'get_scan_log' },
@@ -492,11 +500,7 @@ $(document).ready(function() {
 
 });
 </script>
-</div> <!-- TUTUP WRAPPER CWP -->
-
-<?php
-// ==============================================================================
-// CWP MODULE WRAPPER (FOOTER)
-// ==============================================================================
+</div> <?php
+// Wajib: Memanggil footer CWP
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
 ?>
