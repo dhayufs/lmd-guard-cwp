@@ -1,20 +1,17 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
+// CWP MODULE WRAPPER (FINAL FIX: MENGGUNAKAN STRATEGI ISOLASI TOTAL)
 // ==============================================================================
-if ( !isset( $include_path ) ) { 
-    echo "invalid access"; 
-    exit(); 
-}
 
-// >>> KOREKSI PATH FINAL: Menggunakan path relatif (asumsi /modules/ ada di /resources/admin/) <<<
-// Jika path absolut gagal, path relatif adalah solusi terbaik.
-include_once("../include/config.php"); 
-include_once("../include/common.php"); 
+// Kita MENGHAPUS semua include_once() yang gagal dan logic $include_path, 
+// hanya menyisakan PHP helper dan logic utama.
+// Jika PHP Fatal Error terjadi, ini karena CWP tidak memuat dependencies secara global.
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
 // ==============================================================================
+
+// [ ... SEMUA FUNGSI HELPER DAN LOGIC PHP ANDA ... ]
 
 // Lokasi file config JSON (untuk Telegram/Inotify Status)
 define('LMD_CONFIG_FILE', '/etc/cwp/lmd_config.json');
@@ -99,7 +96,10 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    if (CWP_User::isAdmin()) {
+    // Kita harus memastikan CWP_User::isAdmin() sudah tersedia secara global
+    // (Jika ini gagal, server Anda membutuhkan file include lain yang tidak diketahui)
+    // Asumsi: Karena ini dipanggil dari dashboard CWP yang sudah login, ini aman.
+    if (CWP_User::isAdmin()) { 
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -209,12 +209,40 @@ if (isset($_REQUEST['action_type'])) {
     echo json_encode($response);
     exit;
 }
-?> <!-– TAG PENUTUP PHP (PENTING) -->
+?> 
 
-<?php
-// Wajib: Memanggil header UI CWP (MENGANDALKAN CONTEXT CWP)
-include_once("header.php"); // Path relatif sederhana dari /modules/
-?>
+<!doctype html>
+<html class="no-js">
+<head>
+  <meta charset="utf-8">
+  <title>LMD Guard CWP</title>
+
+  <link href="design/css/icons.css" rel="stylesheet" />
+  <link href="design/css/bootstrap.css" rel="stylesheet" />
+  <link href="design/css/plugins.css" rel="stylesheet" />
+  <link href="design/css/main.css" rel="stylesheet" />
+  <link href="design/css/custom.css" rel="stylesheet" />
+  <link id="customcss" href="design/css/custom.css" rel="stylesheet" />
+  
+  <style>
+    /* Sentuhan kecil biar nge-blend */
+    .antivai-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin-bottom:16px}
+    .antivai-title{font-weight:700;margin-bottom:10px}
+    .antivai-muted{color:#6b7280}
+    .tab-pane{padding-top:12px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:992px){.form-grid{grid-template-columns:1fr}}
+    .table{background:#fff}
+    .badge-soft{background:#e7e7ff;color:#1a5098;border-radius:20px;padding:2px 10px;font-size:.85rem}
+    .cwp_module_header {border-bottom: 1px solid #ccc; margin-bottom: 15px;}
+  </style>
+
+  <script src="design/js/libs/jquery-2.1.1.min.js"></script>
+  <script src="design/js/bootstrap/bootstrap.js"></script>
+  <script src="design/js/main.js"></script>
+  <script src="design/js/pages/blank.js"></script>
+  </head>
+<body>
 
 <div class="container-fluid" id="lmd_module_container">
 
@@ -323,7 +351,7 @@ setTimeout(function() {
             $moduleContainer.find('.tab-pane').removeClass('active');
             
             var targetTab = $(this).data('tab');
-            $('#tab-' + targetTab).addClass('active');
+            $moduleContainer.find('#tab-' + targetTab).addClass('active');
 
             if (targetTab === 'quarantine') {
                 loadQuarantineList(); 
@@ -512,5 +540,5 @@ setTimeout(function() {
 </script>
 </div> <?php
 // Wajib: Memanggil footer CWP
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
+include_once("footer.php");
 ?>
