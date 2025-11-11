@@ -4,20 +4,13 @@
 // ==============================================================================
 if (!defined("IN_CWP")) { die("Access Denied"); }
 
-// >>> KOREKSI KRITIS BERDASARKAN STRUKTUR CWP: 
-// Harus memuat CONFIG.PHP dan COMMON.PHP untuk mendapatkan semua class dan dependencies
+// >>> KOREKSI KRITIS BLANK SCREEN (MEMUAT DEPENDENSI INTI CWP):
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php");
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
 // ==============================================================================
-
-// [ ... (SEMUA FUNGSI HELPER ANDA, TAPI JANGAN MENGULANGNYA DI SINI) ... ]
-// [ ... (SEMUA LOGIKA AJAX ANDA BERADA DI BAWAH INI) ... ]
-
-// ... (KODE LMD_MANAGER.PHP BERLANJUT SEPERTI SEBELUMNYA) ...
-// ... (Pastikan semua kode di bawah ini ada di file lmd_manager.php Anda) ...
 
 // Lokasi file config JSON (untuk Telegram/Inotify Status)
 define('LMD_CONFIG_FILE', '/etc/cwp/lmd_config.json');
@@ -313,201 +306,204 @@ include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
 
 <script>
 // ==============================================================================
-// SCRIPT JAVASCRIPT
+// SCRIPT JAVASCRIPT (FINAL FIX: DITUNDA AGAR TIDAK KONFLIK DENGAN CORE CWP JS)
 // ==============================================================================
-$(document).ready(function() {
-    
-    var scanInterval = null; 
-
-    $('#lmdTabs a').click(function (e) {
-        e.preventDefault();
-        $(this).tab('show');
-        $('.tab-pane').removeClass('active');
+// Penundaan 500ms untuk memberi waktu CWP recover dari Uncaught TypeError
+setTimeout(function() {
+    $(document).ready(function() {
         
-        var targetTab = $(this).data('tab');
-        $('#tab-' + targetTab).addClass('active');
+        var scanInterval = null; 
 
-        if (targetTab === 'quarantine') {
-            loadQuarantineList(); 
-        }
-    });
+        $('#lmdTabs a').click(function (e) {
+            e.preventDefault();
+            $(this).tab('show');
+            $('.tab-pane').removeClass('active');
+            
+            var targetTab = $(this).data('tab');
+            $('#tab-' + targetTab).addClass('active');
 
-    $('input[name="scan_type_radio"]').change(function() {
-        if ($(this).val() === 'full') {
-            $('#scan_path_group').show();
-            $('#scan_recent_group').hide();
-        } else {
-            $('#scan_path_group').hide();
-            $('#scan_recent_group').show();
-        }
-    }).trigger('change'); 
+            if (targetTab === 'quarantine') {
+                loadQuarantineList(); 
+            }
+        });
 
-    $('#select_all_quarantine').click(function() {
-        $(':checkbox[name="qid[]"]').prop('checked', this.checked);
-    });
-    
-    // =================================================================
-    // FUNGSI JAVASCRIPT: LOGIKA INTI
-    // =================================================================
-    
-    function loadSummary() {
-        $.post('index.php?module=lmd_manager', { action_type: 'get_summary' },
-            function(data) {
-                if (data.status === 'success') {
-                    $('#lmd_version').text(data.data.version);
-                    $('#quarantine_count').text(data.data.quarantine_count);
+        $('input[name="scan_type_radio"]').change(function() {
+            if ($(this).val() === 'full') {
+                $('#scan_path_group').show();
+                $('#scan_recent_group').hide();
+            } else {
+                $('#scan_path_group').hide();
+                $('#scan_recent_group').show();
+            }
+        }).trigger('change'); 
 
-                    var isMonitoring = data.data.is_monitoring;
-                    var statusElement = $('#inotify_status');
-                    var buttonElement = $('#toggle_inotify');
-                    
-                    if (isMonitoring) {
-                        statusElement.text('ON').removeClass('label-danger').addClass('label-success');
-                        buttonElement.text('Matikan Pemantauan').removeClass('btn-default').addClass('btn-danger').data('state', 'stop');
-                    } else {
-                        statusElement.text('OFF').removeClass('label-success').addClass('label-danger');
-                        buttonElement.text('Nyalakan Pemantauan').removeClass('btn-danger').addClass('btn-default').data('state', 'start');
-                    }
-                }
-            }, 'json'
-        ).fail(function() { console.error("Gagal memuat ringkasan."); });
-    }
-    loadSummary();
-    setInterval(loadSummary, 10000); 
-
-    function startPolling() {
-        if (scanInterval) { clearInterval(scanInterval); }
-        $('#start_scan_button').prop('disabled', true).text('Memproses...');
-
-        scanInterval = setInterval(function() {
-            $.post('index.php?module=lmd_manager', { action_type: 'get_scan_log' },
+        $('#select_all_quarantine').click(function() {
+            $(':checkbox[name="qid[]"]').prop('checked', this.checked);
+        });
+        
+        // =================================================================
+        // FUNGSI JAVASCRIPT: LOGIKA INTI
+        // =================================================================
+        
+        function loadSummary() {
+            $.post('index.php?module=lmd_manager', { action_type: 'get_summary' },
                 function(data) {
-                    $('#scan_log').html(data.log);
-                    var logArea = $('#scan_log');
-                    logArea.scrollTop(logArea.prop("scrollHeight"));
-                    
-                    if (data.finished) {
-                        clearInterval(scanInterval);
-                        $('#scan_log').append('\n--- PEMINDAIAN SELESAI ---\n');
-                        $('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
-                        scanInterval = null;
-                        loadQuarantineList(); 
+                    if (data.status === 'success') {
+                        $('#lmd_version').text(data.data.version);
+                        $('#quarantine_count').text(data.data.quarantine_count);
+
+                        var isMonitoring = data.data.is_monitoring;
+                        var statusElement = $('#inotify_status');
+                        var buttonElement = $('#toggle_inotify');
+                        
+                        if (isMonitoring) {
+                            statusElement.text('ON').removeClass('label-danger').addClass('label-success');
+                            buttonElement.text('Matikan Pemantauan').removeClass('btn-default').addClass('btn-danger').data('state', 'stop');
+                        } else {
+                            statusElement.text('OFF').removeClass('label-success').addClass('label-danger');
+                            buttonElement.text('Nyalakan Pemantauan').removeClass('btn-danger').addClass('btn-default').data('state', 'start');
+                        }
                     }
                 }, 'json'
-            ).fail(function() {
-                clearInterval(scanInterval);
-                $('#scan_log').append('\n--- KESALAHAN JARINGAN/SERVER ---');
-                $('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
-                scanInterval = null;
-            });
-        }, 2000);
-    }
-    
-    function renderQuarantineTable(data) {
-        var tableHtml = '';
-        $.each(data, function(index, item) {
-            tableHtml += '<tr>';
-            tableHtml += '<td><input type="checkbox" name="qid[]" value="' + item.qid + '"></td>';
-            tableHtml += '<td>' + item.qid + '</td>';
-            tableHtml += '<td>' + item.path + '</td>';
-            tableHtml += '<td>' + item.signature + '</td>';
-            tableHtml += '<td>' + item.time + ' (' + item.user + ')</td>';
-            tableHtml += '</tr>';
-        });
-        $('#quarantine_table_body').html(tableHtml);
-    }
-    function loadQuarantineList() {
-        $('#quarantine_table_body').html('<tr><td colspan="5">Memuat data karantina...</td></tr>');
-        $.post('index.php?module=lmd_manager', { action_type: 'quarantine_list' },
-            function(data) {
-                if (data.status === 'success' && data.data && data.data.length > 0) {
-                    renderQuarantineTable(data.data);
-                } else {
-                    $('#quarantine_table_body').html('<tr><td colspan="5">Tidak ada file dalam karantina.</td></tr>');
-                }
-            }, 'json'
-        );
-    }
-    
-    // =================================================================
-    // D. EVENT LISTENERS
-    // =================================================================
+            ).fail(function() { console.error("Gagal memuat ringkasan."); });
+        }
+        loadSummary();
+        setInterval(loadSummary, 10000); 
 
-    // D1. Toggle Inotify
-    $('#toggle_inotify').click(function() {
-        var button = $(this);
-        var currentState = button.data('state');
-        button.prop('disabled', true).text('Memproses...');
-        $.post('index.php?module=lmd_manager', { action_type: 'toggle_inotify', state: currentState },
-            function(data) { alert(data.message); loadSummary(); }, 'json'
-        ).always(function() { button.prop('disabled', false); });
-    });
-    
-    // D2. Update Signature
-    $('#update_signature').click(function() {
-        var button = $(this);
-        button.prop('disabled', true).text('Memproses Pembaruan...');
-        $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
-            function(data) { alert(data.message); setTimeout(loadSummary, 5000); }, 'json'
-        ).always(function() { button.prop('disabled', false).text('Perbarui Signature Sekarang'); });
-    });
+        function startPolling() {
+            if (scanInterval) { clearInterval(scanInterval); }
+            $('#start_scan_button').prop('disabled', true).text('Memproses...');
 
-    // D3. Submit Form Scan
-    $('#scan_form').submit(function(e) {
-        e.preventDefault();
-        var button = $('#start_scan_button');
-        var type = $('input[name="scan_type_radio"]:checked').val();
-
-        $('#scan_log').text('Memulai pemindaian...\n');
-        button.prop('disabled', true).text('Memproses Permintaan...');
+            scanInterval = setInterval(function() {
+                $.post('index.php?module=lmd_manager', { action_type: 'get_scan_log' },
+                    function(data) {
+                        $('#scan_log').html(data.log);
+                        var logArea = $('#scan_log');
+                        logArea.scrollTop(logArea.prop("scrollHeight"));
+                        
+                        if (data.finished) {
+                            clearInterval(scanInterval);
+                            $('#scan_log').append('\n--- PEMINDAIAN SELESAI ---\n');
+                            $('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
+                            scanInterval = null;
+                            loadQuarantineList(); 
+                        }
+                    }, 'json'
+                ).fail(function() {
+                    clearInterval(scanInterval);
+                    $('#scan_log').append('\n--- KESALAHAN JARINGAN/SERVER ---');
+                    $('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
+                    scanInterval = null;
+                });
+            }, 2000);
+        }
         
-        $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=start_scan',
-            function(data) {
-                if (data.status === 'success') { alert(data.message); startPolling(); } 
-                else { alert('Gagal memicu: ' + data.message); button.prop('disabled', false).text('Mulai Pemindaian'); }
-            }, 'json'
-        ).fail(function() { alert('Kesalahan jaringan.'); button.prop('disabled', false).text('Mulai Pemindaian'); });
-    });
-    
-    // D4. Submit Form Pengaturan & Test Telegram
-    $('#settings_form').submit(function(e) {
-        e.preventDefault();
-        $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
-            function(data) { alert(data.message); }, 'json'
-        );
-    });
-    $('#test_telegram').click(function() {
-        $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
-            function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
-        );
-    });
+        function renderQuarantineTable(data) {
+            var tableHtml = '';
+            $.each(data, function(index, item) {
+                tableHtml += '<tr>';
+                tableHtml += '<td><input type="checkbox" name="qid[]" value="' + item.qid + '"></td>';
+                tableHtml += '<td>' + item.qid + '</td>';
+                tableHtml += '<td>' + item.path + '</td>';
+                tableHtml += '<td>' + item.signature + '</td>';
+                tableHtml += '<td>' + item.time + ' (' + item.user + ')</td>';
+                tableHtml += '</tr>';
+            });
+            $('#quarantine_table_body').html(tableHtml);
+        }
+        function loadQuarantineList() {
+            $('#quarantine_table_body').html('<tr><td colspan="5">Memuat data karantina...</td></tr>');
+            $.post('index.php?module=lmd_manager', { action_type: 'quarantine_list' },
+                function(data) {
+                    if (data.status === 'success' && data.data && data.data.length > 0) {
+                        renderQuarantineTable(data.data);
+                    } else {
+                        $('#quarantine_table_body').html('<tr><td colspan="5">Tidak ada file dalam karantina.</td></tr>');
+                    }
+                }, 'json'
+            );
+        }
+        
+        // =================================================================
+        // D. EVENT LISTENERS
+        // =================================================================
 
-    // D5. Aksi Batch Karantina
-    function handleQuarantineAction(actionType, button) {
-        var selectedQids = $('input[name="qid[]"]:checked').map(function(){ return $(this).val(); }).get();
-
-        if (selectedQids.length === 0 || !confirm('Yakin ' + actionType.toUpperCase() + ' ' + selectedQids.length + ' file?')) { return; }
-
-        button.prop('disabled', true).text('Memproses...');
-        $.post('index.php?module=lmd_manager',
-            { action_type: 'quarantine_action', action_q: actionType, file_ids: selectedQids },
-            function(data) { alert(data.message); loadQuarantineList(); }, 'json'
-        ).always(function() { 
-             var initialText = actionType.charAt(0).toUpperCase() + actionType.slice(1) + 'kan yang Dipilih';
-             if (actionType === 'restore') initialText = 'Pulihkan yang Dipilih';
-             if (actionType === 'delete') initialText = 'Hapus Permanen yang Dipilih';
-             if (actionType === 'clean') initialText = 'Coba Bersihkan yang Dipilih';
-
-             button.prop('disabled', false).text(initialText); 
-        }).fail(function() {
-            alert('Gagal terhubung ke server. Periksa koneksi.');
+        // D1. Toggle Inotify
+        $('#toggle_inotify').click(function() {
+            var button = $(this);
+            var currentState = button.data('state');
+            button.prop('disabled', true).text('Memproses...');
+            $.post('index.php?module=lmd_manager', { action_type: 'toggle_inotify', state: currentState },
+                function(data) { alert(data.message); loadSummary(); }, 'json'
+            ).always(function() { button.prop('disabled', false); });
         });
-    }
-    $('#restore_button').click(function() { handleQuarantineAction('restore', $(this)); });
-    $('#delete_button').click(function() { handleQuarantineAction('delete', $(this)); });
-    $('#clean_button').click(function() { handleQuarantineAction('clean', $(this)); });
+        
+        // D2. Update Signature
+        $('#update_signature').click(function() {
+            var button = $(this);
+            button.prop('disabled', true).text('Memproses Pembaruan...');
+            $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
+                function(data) { alert(data.message); setTimeout(loadSummary, 5000); }, 'json'
+            ).always(function() { button.prop('disabled', false).text('Perbarui Signature Sekarang'); });
+        });
 
-});
+        // D3. Submit Form Scan
+        $('#scan_form').submit(function(e) {
+            e.preventDefault();
+            var button = $('#start_scan_button');
+            var type = $('input[name="scan_type_radio"]:checked').val();
+
+            $('#scan_log').text('Memulai pemindaian...\n');
+            button.prop('disabled', true).text('Memproses Permintaan...');
+            
+            $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=start_scan',
+                function(data) {
+                    if (data.status === 'success') { alert(data.message); startPolling(); } 
+                    else { alert('Gagal memicu: ' + data.message); button.prop('disabled', false).text('Mulai Pemindaian'); }
+                }, 'json'
+            ).fail(function() { alert('Kesalahan jaringan.'); button.prop('disabled', false).text('Mulai Pemindaian'); });
+        });
+        
+        // D4. Submit Form Pengaturan & Test Telegram
+        $('#settings_form').submit(function(e) {
+            e.preventDefault();
+            $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
+                function(data) { alert(data.message); }, 'json'
+            );
+        });
+        $('#test_telegram').click(function() {
+            $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
+                function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
+            );
+        });
+
+        // D5. Aksi Batch Karantina
+        function handleQuarantineAction(actionType, button) {
+            var selectedQids = $('input[name="qid[]"]:checked').map(function(){ return $(this).val(); }).get();
+
+            if (selectedQids.length === 0 || !confirm('Yakin ' + actionType.toUpperCase() + ' ' + selectedQids.length + ' file?')) { return; }
+
+            button.prop('disabled', true).text('Memproses...');
+            $.post('index.php?module=lmd_manager',
+                { action_type: 'quarantine_action', action_q: actionType, file_ids: selectedQids },
+                function(data) { alert(data.message); loadQuarantineList(); }, 'json'
+            ).always(function() { 
+                 var initialText = actionType.charAt(0).toUpperCase() + actionType.slice(1) + 'kan yang Dipilih';
+                 if (actionType === 'restore') initialText = 'Pulihkan yang Dipilih';
+                 if (actionType === 'delete') initialText = 'Hapus Permanen yang Dipilih';
+                 if (actionType === 'clean') initialText = 'Coba Bersihkan yang Dipilih';
+
+                 button.prop('disabled', false).text(initialText); 
+            }).fail(function() {
+                alert('Gagal terhubung ke server. Periksa koneksi.');
+            });
+        }
+        $('#restore_button').click(function() { handleQuarantineAction('restore', $(this)); });
+        $('#delete_button').click(function() { handleQuarantineAction('delete', $(this)); });
+        $('#clean_button').click(function() { handleQuarantineAction('clean', $(this)); });
+
+    });
+}, 500); // Tutup setTimeout
 </script>
 </div> <?php
 // Wajib: Memanggil footer CWP
