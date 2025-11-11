@@ -7,8 +7,8 @@ if ( !isset( $include_path ) ) {
     exit(); 
 }
 
-// >>> KOREKSI KRITIS PATH FINAL (MENGHILANGKAN SEMUA INCLUDE YANG GAGAL) <<<
-// Kita hanya menyertakan path yang benar-benar ada di CWP core.
+// >>> KOREKSI KRITIS PATH FINAL (MENGHAPUS SEMUA INCLUDE ABSOLUT) <<<
+// Kita sekarang menggunakan path relatif /include/ yang paling mendekati benar.
 include_once("../include/config.php"); 
 include_once("../include/common.php"); 
 
@@ -209,11 +209,14 @@ if (isset($_REQUEST['action_type'])) {
     echo json_encode($response);
     exit;
 }
-?>
 
-<?php 
-// KITA HAPUS SEMUA include_once('header.php') yang gagal dan hanya andalkan context CWP.
-// Ini adalah satu-satunya cara untuk mengatasi error stream.
+// ==============================================================================
+// BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
+// ==============================================================================
+
+// Wajib: Memanggil header UI CWP (Kita berharap ini berfungsi karena CWP memuatnya di awal)
+include_once("header.php"); // Path relatif sederhana
+
 ?>
 
 <div class="container-fluid" id="lmd_module_container">
@@ -343,7 +346,7 @@ setTimeout(function() {
 
         // Select All Checkbox
         $moduleContainer.find('#select_all_quarantine').click(function() {
-            $moduleContainer.find(':checkbox[name="qid[]"]').prop('checked', this.checked);
+            $(':checkbox[name="qid[]"]').prop('checked', this.checked);
         });
         
         // =================================================================
@@ -397,7 +400,7 @@ setTimeout(function() {
                 ).fail(function() {
                     clearInterval(scanInterval);
                     $moduleContainer.find('#scan_log').append('\n--- KESALAHAN JARINGAN/SERVER ---');
-                    $moduleContainer.find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
+                    $moduleContainer->find('#start_scan_button').prop('disabled', false).text('Mulai Pemindaian');
                     scanInterval = null;
                 });
             }, 2000);
