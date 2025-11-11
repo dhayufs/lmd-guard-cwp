@@ -1,61 +1,80 @@
 #!/bin/bash
-set -euo pipefail # Safety flags
+set -euo pipefail
 
-# --- 1. Definisi Variabel Uninstall ---
 BRAND_NAME="LMD Guard CWP"
-MOD_NAME="lmd_manager" 
+MOD_NAME="lmd_manager"
 
 CWP_ADMIN_DIR="/usr/local/cwpsrv/htdocs/resources/admin"
-MENU_CONFIG_FILE="${CWP_ADMIN_DIR}/include/3rdparty.php"
+MOD_DIR="${CWP_ADMIN_DIR}/modules"
+MENU_FILE="${CWP_ADMIN_DIR}/include/3rdparty.php"
 
-# Variabel Uninstall System
-LMD_CONF="/usr/local/maldetect/conf.maldet"
+CONFIG_JSON="/etc/cwp/lmd_config.json"
+RESTORE_DIR="/root/lmd_restored"
+JOB_LOG_DIR="/var/log/maldet_ui"
 HOOK_SCRIPT="/usr/local/maldetect/hook/post_quarantine.sh"
-MOD_DIR_FINAL="${CWP_ADMIN_DIR}/modules"
+LMD_CONF="/usr/local/maldetect/conf.maldet"
 
-echo "--- Memulai UNINSTALL ${BRAND_NAME} ---"
+echo ""
+echo "=== 🔥 UNINSTALL $BRAND_NAME DIMULAI ==="
+echo ""
 
-# --- 2. Hapus File Modul dan Konfigurasi ---
-echo "--- Menghapus file modul dan konfigurasi lokal ---"
+# ----------------------------------------------------------------------
+# 1. HAPUS FILE MODUL
+# ----------------------------------------------------------------------
+echo "🗑️ Menghapus modul..."
+rm -f "${MOD_DIR}/${MOD_NAME}.php" || true
+echo "✅ Modul dihapus."
 
-rm -f "${MOD_DIR_FINAL}/${MOD_NAME}.php" || true 
-rm -f /etc/cwp/lmd_config.json || true 
-rm -rf /root/lmd_restored || true
-rm -rf /usr/local/cwp/.conf/lmd_guard.ini || true
+# ----------------------------------------------------------------------
+# 2. HAPUS KONFIGURASI JSON
+# ----------------------------------------------------------------------
+echo "🗑️ Menghapus konfigurasi JSON..."
+rm -f "$CONFIG_JSON" || true
+echo "✅ Konfigurasi JSON dihapus."
 
-echo "✅ File modul dan konfigurasi lokal dihapus."
+# ----------------------------------------------------------------------
+# 3. HAPUS RESTORE DIR & JOB LOG DIR
+# ----------------------------------------------------------------------
+echo "🗑️ Membersihkan direktori restore dan log job..."
+rm -rf "$RESTORE_DIR" || true
+rm -rf "$JOB_LOG_DIR" || true
+echo "✅ Direktori restore & log job dibersihkan."
 
-
-# --- 3. Hapus Menu Link (Cleanup Sidebar) ---
-echo "--- Menghapus link menu dari CWP Sidebar ---"
-
-if [ -f "$MENU_CONFIG_FILE" ]; then
-    # Menghapus baris yang mengandung LMD Guard CWP dari file menu
-    sed -i '/LMD Guard CWP/d' "$MENU_CONFIG_FILE" || true
-    # Menghapus baris yang mengandung module=lmd_manager (pencegahan)
-    sed -i '/module=lmd_manager/d' "$MENU_CONFIG_FILE" || true
+# ----------------------------------------------------------------------
+# 4. HAPUS MENU ENTRY (tidak overwrite seluruh file!)
+# ----------------------------------------------------------------------
+echo "🧩 Menghapus entri menu..."
+if [ -f "$MENU_FILE" ]; then
+    sed -i "/index.php?module=${MOD_NAME}/d" "$MENU_FILE"
 fi
-echo "✅ Link menu dihapus dari 3rdparty.php."
+echo "✅ Menu dibersihkan dari sidebar."
 
-
-# --- 4. Hapus Hook Telegram LMD (Sistem) ---
-echo "--- Menghapus Hook Real-Time LMD ---"
-
-# Hapus skrip hook bash
+# ----------------------------------------------------------------------
+# 5. NONAKTIFKAN HOOK LMD
+# ----------------------------------------------------------------------
+echo "🔗 Menonaktifkan hook realtime LMD..."
 rm -f "$HOOK_SCRIPT" || true
 
-# Hapus konfigurasi hook dari file maldet.conf
+# hapus baris konfigurasi hook dari maldet
 if [ -f "$LMD_CONF" ]; then
     sed -i '/quarantine_exec_file/d' "$LMD_CONF" || true
 fi
-echo "✅ Hook LMD dinonaktifkan dan skrip dihapus."
+echo "✅ Hook realtime dinonaktifkan."
 
+# ----------------------------------------------------------------------
+# 6. **TIDAK** mematikan monitoring otomatis.
+# (biar nggak ganggu server production)
+# ----------------------------------------------------------------------
 
-# --- 5. Restart Layanan CWP (Wajib) ---
-echo "--- Restart layanan CWP untuk memuat ulang UI ---"
-
-systemctl restart cwpsrv >/dev/null 2>&1 || service cwpsrv restart
-echo "✅ Restart CWP selesai."
+# ----------------------------------------------------------------------
+# 7. RESTART CWP
+# ----------------------------------------------------------------------
+echo "♻️ Restart cwpsrv untuk refresh UI..."
+systemctl restart cwpsrv >/dev/null 2>&1 || service cwpsrv restart >/dev/null 2>&1
+echo "✅ CWP restart selesai."
 
 echo ""
-echo "🎉 UNINSTALL ${BRAND_NAME} Selesai Total!"
+echo "🎉 UNINSTALL $BRAND_NAME SELESAI!"
+echo "📌 Jika kamu pernah mengaktifkan pemantauan real-time, kamu bisa matikan manual:"
+echo "    maldet -k"
+echo ""
