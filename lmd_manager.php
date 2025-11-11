@@ -7,11 +7,14 @@ if ( !isset( $include_path ) ) {
     exit(); 
 }
 
-// >>> KOREKSI KRITIS PATH FINAL (KEMBALI KE PATH /INCLUDE/ DENGAN PATH ASUMSI CWP) <<<
-// Kita akan kembali menggunakan /include/ karena itu adalah lokasi yang benar sesuai CWP, 
-// dan ini menandakan bahwa ada masalah symlink/izin di server Anda, bukan kode kita yang salah.
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php"); 
+// >>> KOREKSI KRITIS: MENGHAPUS SEMUA include_once PATH YANG GAGAL <<<
+// Kita hanya mengandalkan CWP telah memuat COMMON dan CONFIG global.
+// Include header/footer yang gagal harus diganti dengan markup statis atau dihapus.
+
+// *Komentari/Hapus path yang gagal*
+// include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
+// include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php"); 
+// [CWP_User::isAdmin() seharusnya sudah tersedia di sini jika CWP bekerja normal]
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -24,9 +27,7 @@ define('LMD_TEMP_LOG', '/tmp/lmd_scan_output');
 
 // 1. FUNGSI HELPER KEAMANAN: Sanitasi Shell Input
 function sanitize_shell_input($input) {
-    // Menghapus karakter pemisah perintah, dll.
     $input = str_replace(array(';', '&&', '||', '`', '$', '(', ')', '#', '!', "\n", "\r", '\\'), '', $input);
-    // Sanitasi kutip
     $input = str_replace("'", "\'", $input);
     return trim($input);
 }
@@ -100,7 +101,8 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    if (CWP_User::isAdmin()) {
+    // Asumsi CWP_User::isAdmin() sudah tersedia
+    if (CWP_User::isAdmin()) { 
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -214,10 +216,6 @@ if (isset($_REQUEST['action_type'])) {
 // ==============================================================================
 // BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
 // ==============================================================================
-
-// Wajib: Memanggil header UI CWP (Koreksi Path: Kembali ke path yang paling umum)
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
-?>
 
 <div class="container-fluid" id="lmd_module_container">
 
@@ -514,6 +512,6 @@ setTimeout(function() {
 }, 500); // Tutup setTimeout
 </script>
 </div> <?php
-// Wajib: Memanggil footer CWP 
+// Wajib: Memanggil footer CWP
 include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
 ?>
