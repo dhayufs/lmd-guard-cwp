@@ -1,15 +1,16 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: HANYA MENGGUNAKAN LOGIC WAJIB)
+// CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
 // ==============================================================================
 if ( !isset( $include_path ) ) { 
     echo "invalid access"; 
     exit(); 
 }
 
-// >>> KOREKSI KRITIS: MENGHAPUS SEMUA INCLUDE PATH YANG GAGAL <<<
-// Kita mengandalkan CWP telah memuat config.php dan common.php ke global scope.
-// Ini adalah satu-satunya cara jika semua include_once gagal.
+// >>> KOREKSI PATH FINAL: Menggunakan path relatif (asumsi /modules/ ada di /resources/admin/) <<<
+// Jika path absolut gagal, path relatif adalah solusi terbaik.
+include_once("../include/config.php"); 
+include_once("../include/common.php"); 
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -31,7 +32,6 @@ function sanitize_shell_input($input) {
 
 // 2. FUNGSI HELPER TELEGRAM
 function send_telegram_notification($message) {
-    // Kita harus mendefinisikan $lmd_config secara global di sini karena include file inti dihapus
     global $lmd_config; 
     
     $token = $lmd_config['token'] ?? '';
@@ -99,8 +99,7 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    // ASUMSI CWP_User::isAdmin() DISEDIAKAN SECARA GLOBAL OLEH CWP
-    if (CWP_User::isAdmin()) { 
+    if (CWP_User::isAdmin()) {
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -213,8 +212,8 @@ if (isset($_REQUEST['action_type'])) {
 ?> <!-– TAG PENUTUP PHP (PENTING) -->
 
 <?php
-// Wajib: Memanggil header UI CWP (Kita berharap ini berfungsi karena CWP harusnya memuatnya)
-//include_once("header.php"); // Path relatif sederhana
+// Wajib: Memanggil header UI CWP (MENGANDALKAN CONTEXT CWP)
+include_once("header.php"); // Path relatif sederhana dari /modules/
 ?>
 
 <div class="container-fluid" id="lmd_module_container">
@@ -344,7 +343,7 @@ setTimeout(function() {
 
         // Select All Checkbox
         $moduleContainer.find('#select_all_quarantine').click(function() {
-            $moduleContainer.find(':checkbox[name="qid[]"]').prop('checked', this.checked);
+            $(':checkbox[name="qid[]"]').prop('checked', this.checked);
         });
         
         // =================================================================
@@ -513,5 +512,5 @@ setTimeout(function() {
 </script>
 </div> <?php
 // Wajib: Memanggil footer CWP
-//include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
 ?>
