@@ -15,9 +15,27 @@ Prasyarat
  * Anda harus menjalankan command sebagai pengguna root.
  * Linux Malware Detect (LMD) harus sudah terinstal di server Anda.
 
-Perintah Instalasi
-Gunakan command ini hanya satu baris di terminal Anda.
-cd /usr/local/src && rm -f install.sh && curl -o install.sh -L https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main/install.sh && bash install.sh
+Berikut adalah command final yang sudah diverifikasi dan paling efisien untuk instalasi dan uninstal, siap Anda jalankan di terminal server Anda:
+
+🚀 1. Command Instalasi (Install Command)
+
+*Command* ini akan mengunduh dan menjalankan `install.sh`, yang kemudian akan memasang modul **LMD Guard CWP** dan **merefresh layanan CWP** secara otomatis.
+
+Pastikan Anda menjalankan ini sebagai `root`:
+
+bash
+REPO_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main" 
+cd /usr/local/src && rm -f install.sh && curl -o install.sh -L ${REPO_URL}/install.sh && bash install.sh
+
+🗑️ 2. Command Penghapusan (Uninstall Command)
+
+Jika Anda perlu menghapus modul sepenuhnya, gunakan *command* ini. Ini akan mengunduh dan menjalankan `uninstall.sh`, yang akan membersihkan semua file, *hook*, dan *link* menu.
+
+Pastikan Anda menjalankan ini sebagai `root`:
+
+bash
+REPO_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main" 
+cd /usr/local/src && rm -f uninstall.sh && curl -o uninstall.sh -L ${REPO_URL}/uninstall.sh && bash uninstall.sh
 
 ⚙️ Panduan Konfigurasi Dashboard (Wajib!)
 Setelah instalasi selesai (skrip tidak menampilkan error), ikuti langkah konfigurasi real-time ini:
