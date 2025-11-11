@@ -3,16 +3,14 @@
 // CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
 // ==============================================================================
 if ( !isset( $include_path ) ) { 
-    // Ini meniru logic 'invalid access' dari example.php
     echo "invalid access"; 
     exit(); 
 }
 
-// >>> MEMUAT DEPENDENSI INTI CWP dengan urutan yang benar <<<
-// 1. config.php: Memuat variabel global (db, paths, dll.)
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/include/config.php"); 
-// 2. common.php: Memuat class (CWP_User, dll.) dan fungsi umum
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/common.php");
+// >>> KOREKSI KRITIS PATH FIX: Mengganti /include/ menjadi /core/ <<<
+// Memuat dependency inti CWP
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/config.php"); 
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/common.php");
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
@@ -25,9 +23,7 @@ define('LMD_TEMP_LOG', '/tmp/lmd_scan_output');
 
 // 1. FUNGSI HELPER KEAMANAN: Sanitasi Shell Input
 function sanitize_shell_input($input) {
-    // Menghapus karakter pemisah perintah, dll.
     $input = str_replace(array(';', '&&', '||', '`', '$', '(', ')', '#', '!', "\n", "\r", '\\'), '', $input);
-    // Sanitasi kutip
     $input = str_replace("'", "\'", $input);
     return trim($input);
 }
@@ -70,14 +66,12 @@ function send_telegram_notification($message) {
 function parse_quarantine_list($raw_output) {
     $lines = preg_split('/\r\n|\r|\n/', $raw_output);
     $quarantine_list = [];
-    // Menghilangkan header dan footer (asumsi 5 baris pertama dan 2 baris terakhir)
     $data_lines = array_slice($lines, 5, -2); 
 
     foreach ($data_lines as $line) {
         $line = trim($line);
         if (empty($line) || strpos($line, '=======') !== false) continue;
 
-        // Pisahkan kolom menggunakan regex untuk spasi ganda
         $parts = preg_split('/\s{2,}/', $line, 7, PREG_SPLIT_NO_EMPTY);
         
         if (count($parts) >= 7) {
@@ -218,8 +212,8 @@ if (isset($_REQUEST['action_type'])) {
 // BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
 // ==============================================================================
 
-// Wajib: Memanggil header UI CWP (sebelum HTML)
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
+// Wajib: Memanggil header UI CWP (Koreksi Path ke /core/)
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/header.php");
 ?>
 
 <div class="container-fluid" id="lmd_module_container">
@@ -312,9 +306,9 @@ include_once("/usr/local/cwpsrv/htdocs/resources/admin/header.php");
 
 <script>
 // ==============================================================================
-// SCRIPT JAVASCRIPT (FINAL FIX: ISOLATED SCOPE & TIMEOUT)
+// SCRIPT JAVASCRIPT
 // ==============================================================================
-// Penundaan 500ms untuk memberi waktu CWP recover dari Uncaught TypeError
+// Penundaan 500ms untuk memberi waktu CWP menyelesaikan inisialisasi UI
 setTimeout(function() {
     var $moduleContainer = $('#lmd_module_container');
     
@@ -440,7 +434,7 @@ setTimeout(function() {
         // =================================================================
 
         // D1. Toggle Inotify
-        $moduleContainer.find('#toggle_inotify').click(function() {
+        $('#toggle_inotify').click(function() {
             var button = $(this);
             var currentState = button.data('state');
             button.prop('disabled', true).text('Memproses...');
@@ -450,7 +444,7 @@ setTimeout(function() {
         });
         
         // D2. Update Signature
-        $moduleContainer.find('#update_signature').click(function() {
+        $('#update_signature').click(function() {
             var button = $(this);
             button.prop('disabled', true).text('Memproses Pembaruan...');
             $.post('index.php?module=lmd_manager', { action_type: 'update_signature' },
@@ -459,12 +453,12 @@ setTimeout(function() {
         });
 
         // D3. Submit Form Scan
-        $moduleContainer.find('#scan_form').submit(function(e) {
+        $('#scan_form').submit(function(e) {
             e.preventDefault();
-            var button = $moduleContainer.find('#start_scan_button');
-            var type = $moduleContainer.find('input[name="scan_type_radio"]:checked').val();
+            var button = $('#start_scan_button');
+            var type = $('input[name="scan_type_radio"]:checked').val();
 
-            $moduleContainer.find('#scan_log').text('Memulai pemindaian...\n');
+            $('#scan_log').text('Memulai pemindaian...\n');
             button.prop('disabled', true).text('Memproses Permintaan...');
             
             $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=start_scan',
@@ -476,13 +470,13 @@ setTimeout(function() {
         });
         
         // D4. Submit Form Pengaturan & Test Telegram
-        $moduleContainer.find('#settings_form').submit(function(e) {
+        $('#settings_form').submit(function(e) {
             e.preventDefault();
             $.post('index.php?module=lmd_manager', $(this).serialize() + '&action_type=save_settings',
                 function(data) { alert(data.message); }, 'json'
             );
         });
-        $moduleContainer.find('#test_telegram').click(function() {
+        $('#test_telegram').click(function() {
             $.post('index.php?module=lmd_manager', { action_type: 'test_telegram' },
                 function(data) { alert(data.status === 'success' ? 'Sukses: ' + data.message : 'Gagal: ' + data.message); }, 'json'
             );
@@ -517,6 +511,6 @@ setTimeout(function() {
 }, 500); // Tutup setTimeout
 </script>
 </div> <?php
-// Wajib: Memanggil footer CWP
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
+// Wajib: Memanggil footer CWP (Koreksi Path: Mengganti /admin/footer.php ke /core/footer.php)
+include_once("/usr/local/cwpsrv/htdocs/resources/admin/core/footer.php");
 ?>
