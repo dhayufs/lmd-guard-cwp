@@ -1,22 +1,19 @@
 <?php
 // ==============================================================================
-// CWP MODULE WRAPPER (FINAL FIX: Menggunakan logic $include_path dari example.php)
+// CWP MODULE WRAPPER (FINAL FIX: HANYA MENGGUNAKAN LOGIC WAJIB)
 // ==============================================================================
 if ( !isset( $include_path ) ) { 
     echo "invalid access"; 
     exit(); 
 }
 
-// >>> KOREKSI KRITIS PATH FINAL (MENGGUNAKAN PATH RELATIF) <<<
-// Path absolut gagal. Kita coba path relatif dari /modules/ ke /include/.
-include_once("../include/config.php"); 
-include_once("../include/common.php"); 
+// >>> KOREKSI KRITIS: MENGHAPUS SEMUA INCLUDE PATH YANG GAGAL <<<
+// Kita mengandalkan CWP telah memuat config.php dan common.php ke global scope.
+// Ini adalah satu-satunya cara jika semua include_once gagal.
 
 // ==============================================================================
 // BLOK 1: LOGIKA SERVER PHP & HELPER 
-// [ ... (Semua logika PHP, functions, dan AJAX Anda) ... ]
-
-// [ ... (LANJUTKAN DENGAN KODE LMD_MANAGER.PHP SEPERTI SEBELUMNYA) ... ]
+// ==============================================================================
 
 // Lokasi file config JSON (untuk Telegram/Inotify Status)
 define('LMD_CONFIG_FILE', '/etc/cwp/lmd_config.json');
@@ -34,6 +31,7 @@ function sanitize_shell_input($input) {
 
 // 2. FUNGSI HELPER TELEGRAM
 function send_telegram_notification($message) {
+    // Kita harus mendefinisikan $lmd_config secara global di sini karena include file inti dihapus
     global $lmd_config; 
     
     $token = $lmd_config['token'] ?? '';
@@ -101,7 +99,8 @@ if (isset($_REQUEST['action_type'])) {
     $response = ['status' => 'error', 'message' => 'Invalid action.'];
     $action = $_REQUEST['action_type'];
     
-    if (CWP_User::isAdmin()) {
+    // ASUMSI CWP_User::isAdmin() DISEDIAKAN SECARA GLOBAL OLEH CWP
+    if (CWP_User::isAdmin()) { 
         switch ($action) {
             case 'get_summary':
                 $is_monitoring = strpos(shell_exec('ps aux | grep "maldet --monitor" | grep -v grep'), 'maldet --monitor') !== false;
@@ -211,13 +210,11 @@ if (isset($_REQUEST['action_type'])) {
     echo json_encode($response);
     exit;
 }
+?> <!-– TAG PENUTUP PHP (PENTING) -->
 
-// ==============================================================================
-// BLOK 2: TAMPILAN HTML DASHBOARD (JIKA BUKAN AJAX REQUEST)
-// ==============================================================================
-
-// Wajib: Memanggil header UI CWP (MENGANDALKAN CONTEXT CWP)
-include_once("../header.php"); // Path relatif dari /modules/ ke /admin/
+<?php
+// Wajib: Memanggil header UI CWP (Kita berharap ini berfungsi karena CWP harusnya memuatnya)
+include_once("header.php"); // Path relatif sederhana
 ?>
 
 <div class="container-fluid" id="lmd_module_container">
@@ -327,7 +324,7 @@ setTimeout(function() {
             $moduleContainer.find('.tab-pane').removeClass('active');
             
             var targetTab = $(this).data('tab');
-            $moduleContainer.find('#tab-' + targetTab).addClass('active');
+            $('#tab-' + targetTab).addClass('active');
 
             if (targetTab === 'quarantine') {
                 loadQuarantineList(); 
