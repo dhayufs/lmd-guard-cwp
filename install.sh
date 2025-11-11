@@ -1,8 +1,8 @@
 #!/bin/bash
-set -euo pipefail # Safety flags untuk stabilitas dan deteksi unbound variable
+set -euo pipefail # Safety flags
 
 # =================================================================
-# 1. DEFINISI VARIABEL (HARUS DI AWAL)
+# 1. DEFINISI VARIABEL
 # =================================================================
 # GANTI INI DENGAN DETAIL REPO ANDA
 REPO_RAW_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main" 
@@ -71,11 +71,11 @@ echo "✅ Konfigurasi Telegram siap."
 # =================================================================
 echo "--- OVERWRITE & Menyiapkan Menu Sidebar CWP ---"
 
+# Hapus logic lama yang mengandung 'lmd_manager' untuk menjaga kebersihan
+sed -i '/lmd_manager/d' "${MENU_CONFIG_FILE}" || true 
+
 # File ini hanya berisi link HTML, dan akan ditimpa total.
 MENU_LINK_HTML="<li><a href=\"index.php?module=${MOD_NAME}\"><span class=\"icon16 icomoon-icon-arrow-right-3\"></span>${BRAND_NAME}</a></li>"
-
-# Catatan: Kita hapus dulu baris yang mengandung 'lmd_manager' untuk jaga-jaga
-sed -i '/lmd_manager/d' "${MENU_CONFIG_FILE}" || true 
 
 # Timpa total file dengan link LMD Guard CWP kita
 cat > "$MENU_CONFIG_FILE" <<EOF_MENU
@@ -89,7 +89,7 @@ echo "✅ File menu ${MENU_CONFIG_FILE} di-OVERWRITE dengan link ${BRAND_NAME}."
 # 4. HOOK TELEGRAM & LMD CONFIG
 # =================================================================
 echo "--- Membuat skrip hook real-time Telegram ---"
-cat << 'EOF_HOOK' > "${HOOK_SCRIPT}"
+cat << 'EOF_HOOK' > "$HOOK_SCRIPT"
 #!/bin/bash
 set -euo pipefail 
 
@@ -105,14 +105,14 @@ if [ -z "$TOKEN" ] || [ -z "$CHAT_ID" ]; then
     exit 0
 fi
 
-MESSAGE="🚨 *MALWARE REAL-TIME DIKARANTINA* 🚨\n\n*Server:* $HOST_NAME\n*Waktu:* $(date '+%Y-%m-%d %H:%M:%S')\n*File:* \`$FILE_PATH\`\n*Ancaman:* $SIGNATURE\n*Aksi:* **Karantina Instan** oleh ${BRAND_NAME}."
+MESSAGE="🚨 *MALWARE REAL-TIME DIKARANTINA* 🚨\n\n*Server:* $HOST_NAME\n*Waktu:* $(date '+%Y-%m-%d %H:%M:%S')\n*File:* \`$FILE_PATH\`\n*Ancaman:* \$SIGNATURE\n*Aksi:* **Karantina Instan** oleh ${BRAND_NAME}."
 
 curl -s -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
 -d chat_id="$CHAT_ID" -d parse_mode="Markdown" -d text="$MESSAGE" > /dev/null 2>&1
 
 exit 0
 EOF_HOOK
-chmod +x "${HOOK_SCRIPT}"
+chmod +x "$HOOK_SCRIPT"
 echo "✅ Hook Telegram berhasil dipasang."
 
 # Konfigurasi LMD
