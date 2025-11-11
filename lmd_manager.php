@@ -214,7 +214,7 @@ if (isset($_REQUEST['action_type'])) {
 
 <?php
 // Wajib: Memanggil header UI CWP (Kita berharap ini berfungsi karena CWP harusnya memuatnya)
-include_once("header.php"); // Path relatif sederhana
+//include_once("header.php"); // Path relatif sederhana
 ?>
 
 <div class="container-fluid" id="lmd_module_container">
@@ -513,5 +513,5 @@ setTimeout(function() {
 </script>
 </div> <?php
 // Wajib: Memanggil footer CWP
-include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
+//include_once("/usr/local/cwpsrv/htdocs/resources/admin/footer.php");
 ?>
