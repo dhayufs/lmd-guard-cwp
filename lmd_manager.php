@@ -430,7 +430,7 @@ case 'toggle_inotify':
   <script src="../design/js/libs/jquery-2.1.1.min.js"></script>
   <script src="../design/js/bootstrap/bootstrap.js"></script>
   <script src="design/js/main.js"></script>
-  <script src="design/js/pages/blank.js"></script>
+<!-- <script src="design/js/pages/blank.js"></script> -->
 </head>
 <body>
 <div class="container-fluid" id="lmd_module_container">
