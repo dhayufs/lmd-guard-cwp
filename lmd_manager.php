@@ -1,11 +1,17 @@
 <?php
-// ==============================================================================
-// LMD Manager Modul (Refactor untuk job-based log & multi-mode handling)
-// ==============================================================================
+// ============================================================
+// CWP MODULE WRAPPER FIX - support versi CWP terbaru
+// ============================================================
+// Beberapa versi CWP tidak lagi mem-passing $include_path ke modul 3rd party,
+// jadi kita izinkan akses modul asalkan lewat index.php CWP (bukan direct web).
 
-if ( !isset( $include_path ) ) { 
-    echo "invalid access"; 
-    exit(); 
+if (php_sapi_name() !== 'cli') {
+    $script = basename($_SERVER['SCRIPT_FILENAME']);
+    $is_ajax = isset($_REQUEST['action_type']);
+    if ($script !== 'index.php' && !$is_ajax) {
+        echo "Invalid Access (module direct call)";
+        exit();
+    }
 }
 
 // ------------------------------------------------------------------------------
