@@ -143,50 +143,54 @@ if (isset($_REQUEST['action_type'])) {
         // get summary
         // -------------------------
         case 'get_summary':
-    // Path binary LMD absolut (untuk environment CWP)
-    $maldet_bin = '/usr/local/sbin/maldet';
-    $pid_file = '/usr/local/maldetect/tmp/.monitor.pid';
-    $is_monitoring = false;
+            // Path binary LMD absolut (untuk environment CWP)
+            $maldet_bin = '/usr/local/sbin/maldet';
+            $pid_file = '/usr/local/maldetect/tmp/.monitor.pid';
+            $is_monitoring = false;
 
-    // 🔹 1. Cek file PID maldet
-    if (file_exists($pid_file)) {
-        $pid = trim(file_get_contents($pid_file));
-        if (!empty($pid) && is_numeric($pid)) {
-            // Cek apakah proses dengan PID ini masih hidup
-            if (posix_kill((int)$pid, 0)) {
-                $is_monitoring = true;
+            // 🔹 1. Cek file PID maldet
+            if (file_exists($pid_file)) {
+                $pid = trim(file_get_contents($pid_file));
+                if (!empty($pid) && is_numeric($pid)) {
+                    if (posix_kill((int)$pid, 0)) {
+                        $is_monitoring = true;
+                    }
+                }
             }
-        }
-    }
 
-    // 🔹 2. Fallback: kalau PID hilang, cari proses inotifywait
-    if (!$is_monitoring) {
-        $check_inotify = shell_exec("ps aux | grep '/usr/bin/inotifywait' | grep -v grep");
-        $is_monitoring = (strpos($check_inotify, '/usr/bin/inotifywait') !== false);
-    }
+            // 🔹 2. Fallback: cari proses inotify kalau PID hilang
+            if (!$is_monitoring) {
+                $check_inotify = shell_exec("ps aux | grep '/usr/bin/inotifywait' | grep -v grep");
+                $is_monitoring = (strpos($check_inotify, '/usr/bin/inotifywait') !== false);
+            }
 
-    // 🔹 3. Ambil versi LMD
-    $version = trim(shell_exec("$maldet_bin --version 2>/dev/null | awk -F: '/Version/ {print \$2}'"));
-    if (empty($version)) {
-        $version = trim(shell_exec("$maldet_bin --version 2>/dev/null | head -n1"));
-    }
-    if (empty($version)) {
-        $version = 'unknown';
-    }
+            // 🔹 3. Ambil versi LMD
+            $version = trim(shell_exec("$maldet_bin --version 2>/dev/null | awk -F: '/Version/ {print \$2}'"));
+            if (empty($version)) {
+                $version = trim(shell_exec("$maldet_bin --version 2>/dev/null | head -n1"));
+            }
+            if (empty($version)) {
+                $version = 'unknown';
+            }
 
-    // 🔹 4. Hitung file karantina (non .info)
-    $quarantine_count = (int)trim(shell_exec('find /usr/local/maldetect/quarantine -type f ! -name "*.info" 2>/dev/null | wc -l'));
+            // 🔹 4. Hitung file karantina (abaikan .info)
+            $quarantine_count = (int)trim(shell_exec('find /usr/local/maldetect/quarantine -type f ! -name "*.info" 2>/dev/null | wc -l'));
 
-    // 🔹 5. Kembalikan hasil ke dashboard
-    $response = [
-        'status' => 'success',
-        'data' => [
-            'version' => $version,
-            'quarantine_count' => $quarantine_count,
-            'is_monitoring' => $is_monitoring
-        ]
-    ];
-    break;
+            // 🔹 5. Siapkan response JSON aman untuk CWP JS
+            $response = [
+                'status' => 'success',
+                'data' => [
+                    'version' => preg_replace('/\s+/', ' ', trim($version)),
+                    'quarantine_count' => $quarantine_count,
+                    'is_monitoring' => $is_monitoring
+                ]
+            ];
+
+            // Pastikan output JSON bersih
+            header('Content-Type: application/json');
+            echo json_encode($response, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            exit;
+            break;
 
         // -------------------------
         // toggle inotify / monitor
