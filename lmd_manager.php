@@ -166,20 +166,32 @@ if (isset($_REQUEST['action_type'])) {
         // -------------------------
         // toggle inotify / monitor
         // -------------------------
-        case 'toggle_inotify':
-            $state = $_POST['state'] ?? 'stop';
-            $state = $state === 'start' ? 'start' : 'stop';
-            $bin = LMD_BIN_FALLBACK;
+case 'toggle_inotify':
+    $state = $_POST['state'] ?? 'stop';
+    $clean_state = ($state === 'start') ? 'start' : 'stop';
 
-            if ($state === 'start') {
-                // -m users => monitor all users
-                shell_exec(escapeshellcmd($bin).' -m users >/dev/null 2>&1 &');
-            } else {
-                // -k => kill monitor
-                shell_exec(escapeshellcmd($bin).' -k >/dev/null 2>&1');
-            }
-            $response = ['status'=>'success','message'=>"Pemantauan real-time diubah ke: {$state}"];
-            break;
+    // Path absolut ke binary maldet (penting di CWP)
+    $maldet_bin = '/usr/local/sbin/maldet';
+
+    // Kill monitor lama dulu biar gak bentrok PID lama
+    shell_exec("$maldet_bin --kill-monitor 2>/dev/null");
+
+    if ($clean_state === 'start') {
+        $command = "$maldet_bin --monitor /home/ >/dev/null 2>&1 &";
+        $message = "Pemantauan real-time dimulai untuk folder /home/";
+    } else {
+        $command = "$maldet_bin --kill-monitor >/dev/null 2>&1";
+        $message = "Pemantauan real-time dimatikan.";
+    }
+
+    // Eksekusi perintah
+    shell_exec($command);
+
+    $response = [
+        'status' => 'success',
+        'message' => $message
+    ];
+    break;
 
         // -------------------------
         // update signature
