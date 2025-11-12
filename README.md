@@ -24,7 +24,7 @@ Berikut adalah command final yang sudah diverifikasi dan paling efisien untuk in
 Pastikan Anda menjalankan ini sebagai `root`:
 
 bash
-`REPO_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main" 
+`REPO_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main"; \
 cd /usr/local/src && rm -f install.sh && curl -o install.sh -L ${REPO_URL}/install.sh && bash install.sh`
 
 🗑️ 2. Command Penghapusan (Uninstall Command)
@@ -34,8 +34,7 @@ Jika Anda perlu menghapus modul sepenuhnya, gunakan *command* ini. Ini akan meng
 Pastikan Anda menjalankan ini sebagai `root`:
 
 bash
-`REPO_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main" 
-cd /usr/local/src && rm -f uninstall.sh && curl -o uninstall.sh -L ${REPO_URL}/uninstall.sh && bash uninstall.sh`
+`REPO_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main"; cd /usr/local/src && rm -f uninstall.sh && curl -o uninstall.sh -L ${REPO_URL}/uninstall.sh && bash uninstall.sh`
 
 ⚙️ Panduan Konfigurasi Dashboard (Wajib!)
 Setelah instalasi selesai (skrip tidak menampilkan error), ikuti langkah konfigurasi real-time ini:
