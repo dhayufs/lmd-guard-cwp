@@ -556,26 +556,52 @@ $(document).ready(function() {
         }
     }).trigger('change');
 
-    function loadSummary() {
-        $.post('index.php?module=lmd_manager', { action_type: 'get_summary' },
-            function(data) {
-                if (data.status === 'success') {
-                    $moduleContainer.find('#lmd_version').text(data.data.version);
-                    $moduleContainer.find('#quarantine_count').text(data.data.quarantine_count);
-                    var isMonitoring = data.data.is_monitoring;
-                    var statusElement = $moduleContainer.find('#inotify_status');
-                    var buttonElement = $moduleContainer.find('#toggle_inotify');
-                    if (isMonitoring) {
-                        statusElement.text('ON').removeClass('label-danger').addClass('label-success');
-                        buttonElement.text('Matikan Pemantauan').removeClass('btn-default').addClass('btn-danger').data('state', 'stop');
-                    } else {
-                        statusElement.text('OFF').removeClass('label-success').addClass('label-danger');
-                        buttonElement.text('Nyalakan Pemantauan').removeClass('btn-danger').addClass('btn-default').data('state', 'start');
-                    }
+function loadSummary() {
+    $.ajax({
+        url: 'index.php?module=lmd_manager',
+        type: 'POST',
+        data: { action_type: 'get_summary' },
+        dataType: 'json',
+        success: function(data) {
+            console.log("🧠 DATA SUMMARY:", data); // debug
+            if (data && data.status === 'success') {
+                $('#lmd_version').text(data.data.version);
+                $('#quarantine_count').text(data.data.quarantine_count);
+
+                var isMonitoring = (data.data.is_monitoring === true ||
+                                    data.data.is_monitoring === "true" ||
+                                    data.data.is_monitoring == 1);
+
+                var statusElement = $('#inotify_status');
+                var buttonElement = $('#toggle_inotify');
+
+                if (isMonitoring) {
+                    statusElement.text('ON')
+                                 .removeClass('label-danger')
+                                 .addClass('label-success');
+                    buttonElement.text('Matikan Pemantauan')
+                                 .removeClass('btn-default')
+                                 .addClass('btn-danger')
+                                 .data('state', 'stop');
+                } else {
+                    statusElement.text('OFF')
+                                 .removeClass('label-success')
+                                 .addClass('label-danger');
+                    buttonElement.text('Nyalakan Pemantauan')
+                                 .removeClass('btn-danger')
+                                 .addClass('btn-default')
+                                 .data('state', 'start');
                 }
-            }, 'json'
-        ).fail(function() { console.error("Gagal memuat ringkasan."); });
-    }
+            } else {
+                console.error("Gagal memuat ringkasan (status bukan success)", data);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error("AJAX gagal:", error);
+        }
+    });
+}
+
     loadSummary();
     setInterval(loadSummary, 10000);
 
