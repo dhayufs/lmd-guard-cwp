@@ -556,60 +556,96 @@ $(document).ready(function() {
         }
     }).trigger('change');
 
+// ======================================================================
+// 🧠 FUNCTION: loadSummary() – Versi Terkuat (CWP Safe + Auto Recovery)
+// ======================================================================
 function loadSummary() {
+    console.log("🔄 [LMD GUARD] Memuat ringkasan status...");
+
     $.ajax({
         url: 'index.php?module=lmd_manager',
         type: 'POST',
         data: { action_type: 'get_summary' },
-        success: function(raw) {
-            var data = {};
-            try {
-                // Paksa parse JSON manual karena CWP suka kirim string mentah
-                data = (typeof raw === 'object') ? raw : JSON.parse(raw);
-            } catch (e) {
-                console.error("❌ JSON parse error:", e, raw);
+        cache: false,
+        timeout: 10000, // 10 detik timeout
+        success: function (raw) {
+            // 1️⃣ Cegah error HTML <doctype>
+            if (typeof raw === 'string' && raw.trim().startsWith('<')) {
+                console.error("🚨 [LMD GUARD] Server mengembalikan HTML, bukan JSON!");
+                console.warn("Isi respon:", raw.substring(0, 200) + "...");
+                $('#lmd_version').text('Error JSON/HTML');
+                $('#inotify_status').text('ERROR').removeClass('label-success').addClass('label-danger');
                 return;
             }
 
-            console.log("🧠 Parsed summary data:", data);
+            // 2️⃣ Parsing JSON secara manual (CWP kadang tidak auto-parse)
+            var data = {};
+            try {
+                data = (typeof raw === 'object') ? raw : JSON.parse(raw);
+            } catch (e) {
+                console.error("❌ [LMD GUARD] Gagal parse JSON:", e, raw);
+                $('#lmd_version').text('Parse Error');
+                return;
+            }
 
-            if (data.status === 'success') {
+            // 3️⃣ Validasi struktur JSON
+            if (!data || !data.status) {
+                console.error("⚠️ [LMD GUARD] Struktur JSON tidak lengkap:", data);
+                $('#lmd_version').text('Invalid JSON');
+                return;
+            }
+
+            // 4️⃣ Log debug
+            console.log("🧠 [LMD GUARD] Parsed summary data:", data);
+
+            // 5️⃣ Update UI Ringkasan
+            if (data.status === 'success' && data.data) {
                 $('#lmd_version').text(data.data.version || 'unknown');
                 $('#quarantine_count').text(data.data.quarantine_count || 0);
 
-                var isMonitoring = (
+                var isMonitoring =
                     data.data.is_monitoring === true ||
                     data.data.is_monitoring === "true" ||
                     data.data.is_monitoring === 1 ||
-                    data.data.is_monitoring === "1"
-                );
+                    data.data.is_monitoring === "1";
 
                 var statusElement = $('#inotify_status');
                 var buttonElement = $('#toggle_inotify');
 
                 if (isMonitoring) {
+                    // Real-time aktif
                     statusElement.text('ON')
-                                 .removeClass('label-danger')
-                                 .addClass('label-success');
+                        .removeClass('label-danger')
+                        .addClass('label-success');
                     buttonElement.text('Matikan Pemantauan')
-                                 .removeClass('btn-default')
-                                 .addClass('btn-danger')
-                                 .data('state', 'stop');
+                        .removeClass('btn-default')
+                        .addClass('btn-danger')
+                        .data('state', 'stop');
+                    console.log("✅ [LMD GUARD] Inotify: AKTIF");
                 } else {
+                    // Real-time mati
                     statusElement.text('OFF')
-                                 .removeClass('label-success')
-                                 .addClass('label-danger');
+                        .removeClass('label-success')
+                        .addClass('label-danger');
                     buttonElement.text('Nyalakan Pemantauan')
-                                 .removeClass('btn-danger')
-                                 .addClass('btn-default')
-                                 .data('state', 'start');
+                        .removeClass('btn-danger')
+                        .addClass('btn-default')
+                        .data('state', 'start');
+                    console.log("🛑 [LMD GUARD] Inotify: NONAKTIF");
                 }
             } else {
-                console.error("⚠️ Gagal memuat ringkasan: ", data);
+                console.error("⚠️ [LMD GUARD] Status bukan success:", data);
+                $('#lmd_version').text('Load Error');
             }
         },
-        error: function(xhr, status, error) {
-            console.error("🚨 AJAX gagal:", status, error);
+        error: function (xhr, status, error) {
+            console.error("🚨 [LMD GUARD] AJAX gagal:", status, error);
+            $('#inotify_status').text('ERR').removeClass('label-success').addClass('label-danger');
+            $('#lmd_version').text('Server Error');
+        },
+        complete: function () {
+            // 6️⃣ Logging tambahan (selalu jalan)
+            console.log("✅ [LMD GUARD] loadSummary() selesai dijalankan.");
         }
     });
 }
