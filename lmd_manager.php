@@ -561,16 +561,28 @@ function loadSummary() {
         url: 'index.php?module=lmd_manager',
         type: 'POST',
         data: { action_type: 'get_summary' },
-        dataType: 'json',
-        success: function(data) {
-            console.log("🧠 DATA SUMMARY:", data); // debug
-            if (data && data.status === 'success') {
-                $('#lmd_version').text(data.data.version);
-                $('#quarantine_count').text(data.data.quarantine_count);
+        success: function(raw) {
+            var data = {};
+            try {
+                // Paksa parse JSON manual karena CWP suka kirim string mentah
+                data = (typeof raw === 'object') ? raw : JSON.parse(raw);
+            } catch (e) {
+                console.error("❌ JSON parse error:", e, raw);
+                return;
+            }
 
-                var isMonitoring = (data.data.is_monitoring === true ||
-                                    data.data.is_monitoring === "true" ||
-                                    data.data.is_monitoring == 1);
+            console.log("🧠 Parsed summary data:", data);
+
+            if (data.status === 'success') {
+                $('#lmd_version').text(data.data.version || 'unknown');
+                $('#quarantine_count').text(data.data.quarantine_count || 0);
+
+                var isMonitoring = (
+                    data.data.is_monitoring === true ||
+                    data.data.is_monitoring === "true" ||
+                    data.data.is_monitoring === 1 ||
+                    data.data.is_monitoring === "1"
+                );
 
                 var statusElement = $('#inotify_status');
                 var buttonElement = $('#toggle_inotify');
@@ -593,11 +605,11 @@ function loadSummary() {
                                  .data('state', 'start');
                 }
             } else {
-                console.error("Gagal memuat ringkasan (status bukan success)", data);
+                console.error("⚠️ Gagal memuat ringkasan: ", data);
             }
         },
         error: function(xhr, status, error) {
-            console.error("AJAX gagal:", error);
+            console.error("🚨 AJAX gagal:", status, error);
         }
     });
 }
