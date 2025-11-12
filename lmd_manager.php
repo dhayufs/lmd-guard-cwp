@@ -75,29 +75,51 @@ function send_telegram_notification($message) {
 }
 
 function parse_quarantine_list($raw_output) {
-    $lines = preg_split('/\r\n|\r|\n/', $raw_output);
+    $lines = preg_split('/\r\n|\r|\n/', trim($raw_output));
     $quarantine_list = [];
-    // attempt to skip header/footer; keep robust fallback
-    $data_lines = array_filter($lines, function($l){
-        $l = trim($l);
-        return ($l !== '' && strpos($l, '==') === false && strpos($l, 'Quarantine') === false);
-    });
 
+    // Jika output maldet kosong, fallback ke isi folder karantina
+    if (count($lines) < 5 || strpos($raw_output, '=======') === false) {
+        $dir = '/usr/local/maldetect/quarantine';
+        if (is_dir($dir)) {
+            foreach (glob("$dir/*") as $file) {
+                if (preg_match('/\.info$/', $file)) continue; // skip .info
+                $info = $file . ".info";
+                $signature = 'unknown';
+                $time = date('Y-m-d H:i:s', filemtime($file));
+                $user = 'root';
+                if (file_exists($info)) {
+                    $meta = file_get_contents($info);
+                    if (preg_match('/malware:\s*(.*)/i', $meta, $m)) {
+                        $signature = trim($m[1]);
+                    }
+                }
+                $quarantine_list[] = [
+                    'qid' => md5($file),
+                    'path' => $file,
+                    'signature' => $signature,
+                    'time' => $time,
+                    'user' => $user
+                ];
+            }
+        }
+        return $quarantine_list;
+    }
+
+    // Kalau output CLI valid, parsing seperti biasa
+    $data_lines = array_slice($lines, 5, -2);
     foreach ($data_lines as $line) {
         $line = trim($line);
         if (empty($line) || strpos($line, '=======') !== false) continue;
-
-        // split by multiple spaces/tabs
         $parts = preg_split('/\s{2,}/', $line, 7, PREG_SPLIT_NO_EMPTY);
-        if (count($parts) >= 6) {
-            // try to map last columns to path and user
+        if (count($parts) >= 7) {
             $quarantine_list[] = [
-                'qid' => sanitize_shell_input($parts[0] ?? ''),
-                'status' => sanitize_shell_input($parts[1] ?? ''),
-                'path' => sanitize_shell_input($parts[2] ?? ''),
-                'signature' => sanitize_shell_input($parts[3] ?? ''),
-                'time' => sanitize_shell_input($parts[4] ?? ''),
-                'user' => sanitize_shell_input($parts[5] ?? ''),
+                'qid' => sanitize_shell_input($parts[1]),
+                'status' => sanitize_shell_input($parts[2]),
+                'path' => sanitize_shell_input($parts[3]),
+                'signature' => sanitize_shell_input($parts[4]),
+                'time' => sanitize_shell_input($parts[5]),
+                'user' => sanitize_shell_input($parts[6]),
             ];
         }
     }
@@ -122,8 +144,12 @@ if (isset($_REQUEST['action_type'])) {
         // -------------------------
         case 'get_summary':
             $bin = LMD_BIN_FALLBACK;
-            $version = trim(shell_exec(escapeshellcmd($bin).' --version 2>/dev/null | grep -i Version | head -n1 | awk -F: \'{print $2}\''));
-            if ($version === '') { $version = 'unknown'; }
+            $version = trim(shell_exec("maldet --version 2>/dev/null | awk -F: '/Version/ {print \$2}'"));
+            if (empty($version)) {
+                $version = trim(shell_exec("maldet --version 2>/dev/null | head -n1"));
+        }
+            if (empty($version)) { $version = 'unknown'; }
+
 
             // Cek monitoring aktif
             $ps = shell_exec('ps -eo pid,cmd | grep -E "[m]aldet (--monitor|-m)"');
