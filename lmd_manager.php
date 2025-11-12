@@ -143,25 +143,50 @@ if (isset($_REQUEST['action_type'])) {
         // get summary
         // -------------------------
         case 'get_summary':
-            $bin = LMD_BIN_FALLBACK;
-            $version = trim(shell_exec("maldet --version 2>/dev/null | awk -F: '/Version/ {print \$2}'"));
-            if (empty($version)) {
-                $version = trim(shell_exec("maldet --version 2>/dev/null | head -n1"));
+    // Path binary LMD absolut (untuk environment CWP)
+    $maldet_bin = '/usr/local/sbin/maldet';
+    $pid_file = '/usr/local/maldetect/tmp/.monitor.pid';
+    $is_monitoring = false;
+
+    // 🔹 1. Cek file PID maldet
+    if (file_exists($pid_file)) {
+        $pid = trim(file_get_contents($pid_file));
+        if (!empty($pid) && is_numeric($pid)) {
+            // Cek apakah proses dengan PID ini masih hidup
+            if (posix_kill((int)$pid, 0)) {
+                $is_monitoring = true;
+            }
         }
-            if (empty($version)) { $version = 'unknown'; }
+    }
 
+    // 🔹 2. Fallback: kalau PID hilang, cari proses inotifywait
+    if (!$is_monitoring) {
+        $check_inotify = shell_exec("ps aux | grep '/usr/bin/inotifywait' | grep -v grep");
+        $is_monitoring = (strpos($check_inotify, '/usr/bin/inotifywait') !== false);
+    }
 
-            // Cek monitoring aktif
-            $ps = shell_exec('ps -eo pid,cmd | grep -E "[m]aldet (--monitor|-m)"');
-            $is_monitoring = !empty(trim($ps));
+    // 🔹 3. Ambil versi LMD
+    $version = trim(shell_exec("$maldet_bin --version 2>/dev/null | awk -F: '/Version/ {print \$2}'"));
+    if (empty($version)) {
+        $version = trim(shell_exec("$maldet_bin --version 2>/dev/null | head -n1"));
+    }
+    if (empty($version)) {
+        $version = 'unknown';
+    }
 
-            $quarantine_count = (int)trim(shell_exec('find /usr/local/maldetect/quarantine -type f 2>/dev/null | wc -l'));
-            $response = ['status'=>'success','data'=>[
-                'version'=>$version,
-                'quarantine_count'=>$quarantine_count,
-                'is_monitoring'=>$is_monitoring
-            ]];
-            break;
+    // 🔹 4. Hitung file karantina (non .info)
+    $quarantine_count = (int)trim(shell_exec('find /usr/local/maldetect/quarantine -type f ! -name "*.info" 2>/dev/null | wc -l'));
+
+    // 🔹 5. Kembalikan hasil ke dashboard
+    $response = [
+        'status' => 'success',
+        'data' => [
+            'version' => $version,
+            'quarantine_count' => $quarantine_count,
+            'is_monitoring' => $is_monitoring
+        ]
+    ];
+    break;
 
         // -------------------------
         // toggle inotify / monitor
