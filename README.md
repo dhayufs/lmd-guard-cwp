@@ -27,6 +27,12 @@ bash
 `REPO_URL="https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main"; \
 cd /usr/local/src && rm -f install.sh && curl -o install.sh -L ${REPO_URL}/install.sh && bash install.sh`
 
+Cek Instalasi
+
+bash
+`curl -o /usr/local/bin/lmd-guard-check -L https://raw.githubusercontent.com/dhayufs/lmd-guard-cwp/main/tools/lmd-guard-check.sh
+chmod +x /usr/local/bin/lmd-guard-check`
+
 🗑️ 2. Command Penghapusan (Uninstall Command)
 
 Jika Anda perlu menghapus modul sepenuhnya, gunakan *command* ini. Ini akan mengunduh dan menjalankan `uninstall.sh`, yang akan membersihkan semua file, *hook*, dan *link* menu.
